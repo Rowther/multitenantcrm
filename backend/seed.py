@@ -222,7 +222,7 @@ async def seed_database():
     print("MSAM Admin: admin@msamtechnicalsolutions.com / password123")
     print("\nEmployees: employee1@{company}.com / password123")
     
-    client.close()
+    mongo_client.close()
 
 if __name__ == "__main__":
     asyncio.run(seed_database())
