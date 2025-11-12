@@ -12,14 +12,6 @@ import logging
 import uuid
 import bcrypt
 import jwt
-
-
-if __name__ == "__main__":
-    import uvicorn
-    import os
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
-
 from pathlib import Path
 import json
 import base64
@@ -33,10 +25,17 @@ from contextlib import asynccontextmanager
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# MongoDB connection with better error handling
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+if not mongo_url:
+    raise ValueError("MONGO_URL environment variable is not set")
+
+try:
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ.get('DB_NAME', 'erp_crm_database')]
+except Exception as e:
+    logging.error(f"Failed to connect to MongoDB: {e}")
+    raise
 
 # JWT Configuration
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
