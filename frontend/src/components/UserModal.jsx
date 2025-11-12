@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { API } from '@/App';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { API } from '../App';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
+import { X } from 'lucide-react';
 
-const UserModal = ({ onClose, onSuccess, companies, isSuperAdmin, companyId }) => {
+const UserModal = ({ onClose, onSuccess, companies, isSuperAdmin, companyId, clients }) => {
   const [formData, setFormData] = useState({
     display_name: '',
     email: '',
     password: '',
     phone: '',
     role: 'EMPLOYEE',
-    company_id: companyId || ''
+    company_id: companyId || '',
+    client_id: ''  // Add client_id field
   });
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +26,13 @@ const UserModal = ({ onClose, onSuccess, companies, isSuperAdmin, companyId }) =
     setLoading(true);
 
     try {
-      await axios.post(`${API}/users`, formData);
+      // Prepare data to send - only include client_id if role is CLIENT and a client is selected
+      const dataToSend = { ...formData };
+      if (formData.role !== 'CLIENT' || !formData.client_id) {
+        delete dataToSend.client_id;
+      }
+
+      await axios.post(`${API}/users`, dataToSend);
       onSuccess();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to create user');
@@ -34,10 +42,23 @@ const UserModal = ({ onClose, onSuccess, companies, isSuperAdmin, companyId }) =
   };
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl" data-testid="user-modal">
+    <Dialog open={true}>
+      <DialogContent 
+        className="max-w-2xl" 
+        data-testid="user-modal"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold" style={{fontFamily: 'Space Grotesk'}}>Create New User</DialogTitle>
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -109,7 +130,7 @@ const UserModal = ({ onClose, onSuccess, companies, isSuperAdmin, companyId }) =
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SUPERADMIN">SuperAdmin</SelectItem>
+                    {/* Removed SuperAdmin option as per requirements */}
                     <SelectItem value="ADMIN">Admin</SelectItem>
                     <SelectItem value="EMPLOYEE">Employee</SelectItem>
                     <SelectItem value="CLIENT">Client</SelectItem>
@@ -122,13 +143,32 @@ const UserModal = ({ onClose, onSuccess, companies, isSuperAdmin, companyId }) =
           {!isSuperAdmin && (
             <div className="space-y-2">
               <Label htmlFor="role">Role *</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value, client_id: '' })}>
                 <SelectTrigger data-testid="user-role-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="EMPLOYEE">Employee/Technician</SelectItem>
                   <SelectItem value="CLIENT">Client</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Client selection dropdown - only show when role is CLIENT */}
+          {formData.role === 'CLIENT' && (
+            <div className="space-y-2">
+              <Label htmlFor="client_id">Link to Client (Optional)</Label>
+              <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value })}>
+                <SelectTrigger data-testid="user-client-select">
+                  <SelectValue placeholder="Select a client (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients
+                    ?.filter(client => client.company_id === (formData.company_id || companyId))
+                    .map((client) => (
+                      <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

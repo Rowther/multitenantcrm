@@ -1,23 +1,46 @@
-# Enterprise Hub - Multi-Tenant ERP+CRM Platform
+# Multi-Tenant ERP + CRM Web Platform
 
-A comprehensive cloud-based multi-tenant ERP & CRM web application for managing three companies (Sama Al Jazeera, Vigor Automotive, and MSAM Technical Solutions) from a single platform.
+A comprehensive cloud-based multi-tenant ERP & CRM web application for managing three companies from a single platform.
 
-## 🌟 Features
+## 🚀 Getting Started
 
-### Multi-Tenancy
-- Single login & central user database
-- Strict tenant data separation
-- Role-based access control (RBAC)
+### Prerequisites
+- MongoDB database
+- Python 3.8+
+- Node.js 14+
+- Yarn package manager
 
-### Core Modules
-- **Work Orders Management**: Create, track, and manage work orders with status workflows
-- **Expenses & Invoices**: Track expenses and generate PDF invoices
-- **Client Management**: Comprehensive client database
-- **Employee Management**: Employee records with skills and rates
-- **Vehicle Registry**: Vehicle management for Vigor Automotive
-- **Preventive Maintenance**: Scheduled maintenance tasks for MSAM
-- **Notifications**: In-app notifications (email/SMS mocked)
-- **Reports**: Rich dashboards and analytics
+### Installation
+
+1. **Start MongoDB** (make sure MongoDB is running on your system)
+
+2. **Backend Setup**:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   python seed.py  # Seed the database with sample data
+   ```
+
+3. **Frontend Setup**:
+   ```bash
+   cd frontend
+   yarn install
+   ```
+
+4. **Start Servers**:
+   ```bash
+   # Run the bat file to start both servers
+   start-servers.bat
+   ```
+   
+   Or start manually:
+   ```bash
+   # Backend (from backend directory)
+   python server.py
+   
+   # Frontend (from frontend directory)
+   yarn start
+   ```
 
 ## 🏢 Companies
 
@@ -44,21 +67,59 @@ A comprehensive cloud-based multi-tenant ERP & CRM web application for managing 
 - Vigor: admin@vigorautomotive.com / password123
 - MSAM: admin@msamtechnicalsolutions.com / password123
 
+### Employees
+- Email: employee1@{company}.com / password123
+
+### Clients
+- Email: client1@example.com / password123
+
+## 🌟 Features
+
+### Multi-Tenancy
+- Single login & central user database
+- Strict tenant data separation
+- Role-based access control (RBAC)
+
+### Core Modules
+- **Work Orders Management**: Create, track, and manage work orders with status workflows
+- **Expenses & Invoices**: Track expenses and generate PDF invoices
+- **Client Management**: Comprehensive client database
+- **Employee Management**: Employee records with skills and rates
+- **Vehicle Registry**: Vehicle management for Vigor Automotive
+- **Preventive Maintenance**: Scheduled maintenance tasks for MSAM
+- **Notifications**: In-app notifications (email/SMS mocked)
+- **Reports**: Rich dashboards and analytics
+
 ## 🛠️ Tech Stack
 
 **Backend**: FastAPI + MongoDB + JWT + ReportLab (PDF)
 **Frontend**: React 19 + Shadcn/UI + Tailwind CSS + Recharts
 
-## 🚀 Quick Start
+## 📁 Project Structure
 
-```bash
-# Seed database
-cd /app/backend && python seed.py
-
-# Restart services
-sudo supervisorctl restart backend frontend
 ```
+project/
+├── backend/
+│   ├── server.py          # FastAPI server
+│   ├── seed.py            # Database seeding
+│   └── requirements.txt   # Python dependencies
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # Reusable UI components
+│   │   ├── pages/         # Page components
+│   │   └── App.js         # Main application
+│   └── package.json       # Frontend dependencies
+└── start-servers.bat      # Script to start both servers
+```
+
+## 🎨 UI Features
+
+- Glassmorphism login page
+- Clean modern dashboard with dark/light mode
+- Sidebar navigation
+- Data tables with search and export capabilities
+- Responsive design for all devices
 
 ## 📞 Support
 
-Check logs: `tail -f /var/log/supervisor/backend.err.log`
+For support, please contact the development team.

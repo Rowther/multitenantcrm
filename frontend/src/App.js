@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
-import '@/App.css';
-import Login from '@/pages/Login';
-import SuperAdminDashboard from '@/pages/SuperAdminDashboard';
-import AdminDashboard from '@/pages/AdminDashboard';
-import EmployeeDashboard from '@/pages/EmployeeDashboard';
-import ClientDashboard from '@/pages/ClientDashboard';
-import { Toaster } from '@/components/ui/sonner';
+import './App.css';
+import Login from './pages/Login';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import SamaAlJazeeraDashboard from './pages/SamaAlJazeeraDashboard';
+import VigorAutomotiveDashboard from './pages/VigorAutomotiveDashboard';
+import MSAMTechnicalDashboard from './pages/MSAMTechnicalDashboard';
+import EmployeeDashboard from './pages/EmployeeDashboard';
+import ClientDashboard from './pages/ClientDashboard';
+import PreventiveMaintenancePage from './pages/PreventiveMaintenancePage';
+import VehiclesPage from './pages/VehiclesPage';
+import ReportsPage from './pages/ReportsPage';
+import CompanyDetails from './pages/CompanyDetails';
+import WorkOrdersPage from './pages/WorkOrdersPage';
+import WorkOrderDetailsPage from './pages/WorkOrderDetailsPage';
+import ClientsPage from './pages/ClientsPage';
+import EmployeesPage from './pages/EmployeesPage';
+import UsersPage from './pages/UsersPage'; // Add UsersPage import
+import LogsPage from './pages/LogsPage';
+import { Toaster } from './components/ui/sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -26,6 +39,7 @@ axios.interceptors.request.use(
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userCompany, setUserCompany] = useState(null);
 
   useEffect(() => {
     checkAuth();
@@ -37,6 +51,16 @@ function App() {
       try {
         const response = await axios.get(`${API}/users/me`);
         setUser(response.data);
+        
+        // If user is an admin, fetch their company details
+        if (response.data.role === 'ADMIN' && response.data.company_id) {
+          try {
+            const companyResponse = await axios.get(`${API}/companies/${response.data.company_id}`);
+            setUserCompany(companyResponse.data);
+          } catch (error) {
+            console.error('Error fetching company data:', error);
+          }
+        }
       } catch (error) {
         localStorage.removeItem('token');
       }
@@ -45,13 +69,25 @@ function App() {
   };
 
   const handleLogin = (userData, token) => {
-    localStorage.setItem('token', token);
-    setUser(userData);
+    // Fix: Make sure we're handling the token correctly
+    const actualToken = token || userData.token;
+    const actualUser = userData.user || userData;
+    
+    localStorage.setItem('token', actualToken);
+    setUser(actualUser);
+    
+    // If user is an admin, fetch their company details
+    if (actualUser.role === 'ADMIN' && actualUser.company_id) {
+      axios.get(`${API}/companies/${actualUser.company_id}`)
+        .then(response => setUserCompany(response.data))
+        .catch(error => console.error('Error fetching company data:', error));
+    }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setUser(null);
+    setUserCompany(null);
   };
 
   if (loading) {
@@ -75,7 +111,22 @@ function App() {
       case 'SUPERADMIN':
         return <SuperAdminDashboard user={user} onLogout={handleLogout} />;
       case 'ADMIN':
-        return <AdminDashboard user={user} onLogout={handleLogout} />;
+        // Route to specific dashboard based on company industry
+        if (userCompany) {
+          switch (userCompany.industry) {
+            case 'furniture':
+              return <SamaAlJazeeraDashboard user={user} onLogout={handleLogout} />;
+            case 'automotive':
+              return <VigorAutomotiveDashboard user={user} onLogout={handleLogout} />;
+            case 'technical_solutions':
+              return <MSAMTechnicalDashboard user={user} onLogout={handleLogout} />;
+            default:
+              return <AdminDashboard user={user} onLogout={handleLogout} />;
+          }
+        } else {
+          // Fallback to generic admin dashboard while loading company data
+          return <AdminDashboard user={user} onLogout={handleLogout} />;
+        }
       case 'EMPLOYEE':
         return <EmployeeDashboard user={user} onLogout={handleLogout} />;
       case 'CLIENT':
@@ -87,15 +138,25 @@ function App() {
 
   return (
     <div className="App">
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route 
             path="/login" 
             element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />} 
           />
-          <Route path="/" element={getDashboard()} />
+          <Route path="/" element={<ProtectedRoute><div>{getDashboard()}</div></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}><UsersPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}>{user?.role === 'SUPERADMIN' ? <SuperAdminDashboard user={user} onLogout={handleLogout} /> : <ReportsPage user={user} onLogout={handleLogout} />}</ProtectedRoute>} />
+          <Route path="/logs-dev" element={<ProtectedRoute allowedRoles={['SUPERADMIN']}><LogsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} /> {/* Added logs route */}
+          <Route path="/companies/:companyId" element={<ProtectedRoute allowedRoles={['SUPERADMIN']}><CompanyDetails user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/companies/:companyId/workorders/:workOrderId" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'CLIENT']}><WorkOrderDetailsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/work-orders" element={<ProtectedRoute allowedRoles={['ADMIN']}><WorkOrdersPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/clients" element={<ProtectedRoute allowedRoles={['ADMIN']}><ClientsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/employees" element={<ProtectedRoute allowedRoles={['ADMIN']}><EmployeesPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/preventive-maintenance" element={<ProtectedRoute allowedRoles={['ADMIN']}><PreventiveMaintenancePage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/vehicles" element={<ProtectedRoute allowedRoles={['ADMIN']}><VehiclesPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
       <Toaster position="top-right" />
     </div>
   );

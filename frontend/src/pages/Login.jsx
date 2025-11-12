@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { API } from '@/App';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { API } from '../App';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Building2, Lock, Mail } from 'lucide-react';
 
 const Login = ({ onLogin }) => {
@@ -100,19 +100,15 @@ const Login = ({ onLogin }) => {
             </form>
 
             {/* Demo accounts */}
-            <div className="mt-8 pt-6 border-t border-slate-200">
+            {/* <div className="mt-8 pt-6 border-t border-slate-200">
               <p className="text-xs text-slate-500 text-center mb-3">Demo Accounts (will be seeded)</p>
               <div className="space-y-2 text-xs text-slate-600">
                 <div className="flex justify-between px-4 py-2 bg-slate-50 rounded-lg">
                   <span className="font-medium">SuperAdmin:</span>
                   <span>superadmin@erp.com</span>
                 </div>
-                <div className="flex justify-between px-4 py-2 bg-slate-50 rounded-lg">
-                  <span className="font-medium">Admin:</span>
-                  <span>admin@sama.com</span>
-                </div>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Footer */}

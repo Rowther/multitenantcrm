@@ -1,29 +1,98 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { API } from '@/App';
-import DashboardLayout from '@/components/DashboardLayout';
-import { Card } from '@/components/ui/card';
+import { API } from '../App';
+import DashboardLayout from '../components/DashboardLayout';
+import { Card } from '../components/ui/card';
 import { FileText, Clock, CheckCircle } from 'lucide-react';
-import WorkOrdersList from '@/components/WorkOrdersList';
+import WorkOrdersList from '../components/WorkOrdersList';
+import WorkOrderFilters from '../components/WorkOrderFilters';
 
 const EmployeeDashboard = ({ user, onLogout }) => {
   const [workOrders, setWorkOrders] = useState([]);
+  const [filteredWorkOrders, setFilteredWorkOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [clients, setClients] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = async (page = 1, filters = {}) => {
     try {
-      const response = await axios.get(`${API}/companies/${user.company_id}/workorders?assigned_to=${user.id}`);
-      setWorkOrders(response.data);
+      const params = { page, limit: 10, assigned_to: user.id, ...filters };
+      
+      const [workOrdersRes, clientsRes, employeesRes] = await Promise.all([
+        axios.get(`${API}/companies/${user.company_id}/workorders`, { params }),
+        axios.get(`${API}/companies/${user.company_id}/clients`),
+        axios.get(`${API}/companies/${user.company_id}/employees`)
+      ]);
+      
+      // Handle both old and new API response formats
+      let workOrdersData, paginationData;
+      if (workOrdersRes.data.work_orders) {
+        workOrdersData = workOrdersRes.data.work_orders;
+        paginationData = workOrdersRes.data.pagination;
+      } else {
+        workOrdersData = workOrdersRes.data;
+        paginationData = {
+          page: 1,
+          limit: 10,
+          total: workOrdersData.length,
+          pages: Math.ceil(workOrdersData.length / 10)
+        };
+      }
+      
+      setWorkOrders(workOrdersData);
+      setFilteredWorkOrders(workOrdersData);
+      setClients(clientsRes.data);
+      setEmployees(employeesRes.data);
+      setPagination(paginationData);
     } catch (error) {
       toast.error('Failed to fetch work orders');
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleFilterChange = async (filters) => {
+    try {
+      const params = { page: 1, limit: 10, assigned_to: user.id };
+      
+      if (filters.search) params.search = filters.search;
+      if (filters.status && filters.status !== 'all') params.status = filters.status;
+      if (filters.priority && filters.priority !== 'all') params.priority = filters.priority;
+      if (filters.clientId && filters.clientId !== 'all') params.client_id = filters.clientId;
+      
+      const response = await axios.get(`${API}/companies/${user.company_id}/workorders`, { params });
+      
+      // Handle both old and new API response formats
+      let workOrdersData, paginationData;
+      if (response.data.work_orders) {
+        workOrdersData = response.data.work_orders;
+        paginationData = response.data.pagination;
+      } else {
+        workOrdersData = response.data;
+        paginationData = {
+          page: 1,
+          limit: 10,
+          total: workOrdersData.length,
+          pages: Math.ceil(workOrdersData.length / 10)
+        };
+      }
+      
+      setFilteredWorkOrders(workOrdersData);
+      setPagination(paginationData);
+    } catch (error) {
+      toast.error('Failed to filter work orders');
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    fetchData(newPage);
   };
 
   if (loading) {
@@ -83,7 +152,21 @@ const EmployeeDashboard = ({ user, onLogout }) => {
         {/* Work Orders */}
         <Card className="p-6">
           <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>My Assigned Work Orders</h2>
-          <WorkOrdersList workOrders={workOrders} companyId={user.company_id} onRefresh={fetchData} isEmployee={true} />
+          <WorkOrderFilters 
+            onFilterChange={handleFilterChange}
+            companyId={user.company_id}
+            clients={clients}
+            employees={employees}
+          />
+          <WorkOrdersList 
+            workOrders={filteredWorkOrders} 
+            companyId={user.company_id} 
+            onRefresh={() => fetchData(pagination.page)} 
+            isEmployee={true}
+            pagination={pagination}
+            onPageChange={handlePageChange}
+          />
+
         </Card>
       </div>
     </DashboardLayout>

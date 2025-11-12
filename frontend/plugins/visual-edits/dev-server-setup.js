@@ -29,30 +29,18 @@ function setupDevServer(config) {
     if (!devServer) throw new Error("webpack-dev-server not defined");
     devServer.app.use(express.json());
 
-    // CORS origin validation
+    // Check if the origin is allowed
     const isAllowedOrigin = (origin) => {
-      if (!origin) return false;
-
-      // Allow localhost and 127.0.0.1 on any port
-      if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/)) {
+      // Allow localhost for development
+      if (origin === 'http://localhost:3000' || origin === 'http://localhost:8000') {
         return true;
       }
-
-      // Allow all emergent.sh subdomains
-      if (origin.match(/^https:\/\/([a-zA-Z0-9-]+\.)*emergent\.sh$/)) {
+      
+      // Allow all origins in development
+      if (process.env.NODE_ENV === 'development') {
         return true;
       }
-
-      // Allow all emergentagent.com subdomains
-      if (origin.match(/^https:\/\/([a-zA-Z0-9-]+\.)*emergentagent\.com$/)) {
-        return true;
-      }
-
-      // Allow all appspot.com subdomains (for App Engine)
-      if (origin.match(/^https:\/\/([a-zA-Z0-9-]+\.)*appspot\.com$/)) {
-        return true;
-      }
-
+      
       return false;
     };
 
@@ -473,8 +461,9 @@ function setupDevServer(config) {
           const timestamp = Date.now();
           try {
             // Use -c flag for per-invocation git config to avoid modifying any config
-            execSync(`git -c user.name="visual-edit" -c user.email="support@emergent.sh" add "${targetFile}"`);
-            execSync(`git -c user.name="visual-edit" -c user.email="support@emergent.sh" commit -m "visual_edit_${timestamp}"`);
+            execSync(`git -c user.name="visual-edit" -c user.email="support@localhost" add "${targetFile}"`);
+            execSync(`git -c user.name="visual-edit" -c user.email="support@localhost" commit -m "visual_edit_${timestamp}"`);
+
           } catch (gitError) {
             console.error(`Git commit failed: ${gitError.message}`);
             // Continue even if git fails - file write succeeded

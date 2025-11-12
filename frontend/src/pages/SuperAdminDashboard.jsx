@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { API } from '@/App';
-import DashboardLayout from '@/components/DashboardLayout';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import { API } from '../App';
+import DashboardLayout from '../components/DashboardLayout';
+import { Card } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 import { Building2, Users, FileText, TrendingUp, Plus } from 'lucide-react';
-import CompanyModal from '@/components/CompanyModal';
-import UserModal from '@/components/UserModal';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import CompanyModal from '../components/CompanyModal';
+import UserModal from '../components/UserModal';
+import WorkOrderModal from '../components/WorkOrderModal';
+import { ResponsiveContainer } from 'recharts';
 
-const SuperAdminDashboard = ({ user, onLogout }) => {
+const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [summary, setSummary] = useState(null);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showWorkOrderModal, setShowWorkOrderModal] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,7 +57,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   }
 
   return (
-    <DashboardLayout user={user} onLogout={onLogout}>
+    <DashboardLayout user={user} onLogout={onLogout} onUpdateUser={onUpdateUser}>
       <div className="space-y-6" data-testid="superadmin-dashboard">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -64,9 +69,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             <Button onClick={() => setShowUserModal(true)} variant="outline" data-testid="create-user-button">
               <Plus className="w-4 h-4 mr-2" /> Create User
             </Button>
-            <Button onClick={() => setShowCompanyModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600" data-testid="create-company-button">
-              <Plus className="w-4 h-4 mr-2" /> Create Company
-            </Button>
+
           </div>
         </div>
 
@@ -89,7 +92,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
               <div>
                 <p className="text-sm text-green-700 font-medium">Total Revenue</p>
                 <p className="text-3xl font-bold text-green-900 mt-2">
-                  ${summary?.companies.reduce((sum, c) => sum + c.total_revenue, 0).toFixed(0) || 0}
+                  {(summary?.companies.reduce((sum, c) => sum + c.total_revenue, 0).toFixed(0) || 0)} AED
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
@@ -156,9 +159,27 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-slate-700">{companyData?.total_work_orders || 0}</td>
-                      <td className="py-4 px-4 text-slate-700">${companyData?.total_revenue.toFixed(2) || '0.00'}</td>
+                      <td className="py-4 px-4 text-slate-700">{(companyData?.total_revenue.toFixed(2) || '0.00')} AED</td>
                       <td className="py-4 px-4">
-                        <Button variant="ghost" size="sm">View Details</Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/companies/${company.id}`)}
+                          >
+                            View Details
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedCompanyId(company.id);
+                              setShowWorkOrderModal(true);
+                            }}
+                          >
+                            Create Work Order
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -168,19 +189,33 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           </div>
         </Card>
 
-        {/* Revenue Chart */}
+        {/* Bento Card for Revenue by Company */}
         {summary && summary.companies.length > 0 && (
           <Card className="p-6">
             <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Revenue by Company</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={summary.companies}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="company_name" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
-                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} />
-                <Bar dataKey="total_revenue" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {summary.companies.map((companyData) => (
+                <div key={companyData.company_id} className="bg-slate-50 rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-slate-800">{companyData.company_name}</h3>
+                      <p className="text-sm text-slate-600">{companyData.industry}</p>
+                    </div>
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                      {(companyData.total_revenue?.toFixed(2) || '0.00')} AED
+                    </span>
+                  </div>
+                  <div className="mt-3 flex justify-between items-center">
+                    <span className="text-sm text-slate-600">Work Orders: {companyData.total_work_orders || 0}</span>
+                    <span className="text-sm font-medium text-slate-800">
+                      {companyData.total_revenue && companyData.total_work_orders 
+                        ? `${(companyData.total_revenue / companyData.total_work_orders).toFixed(2)} AED/WO` 
+                        : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </Card>
         )}
       </div>
@@ -198,6 +233,20 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           onSuccess={handleUserCreated}
           companies={companies}
           isSuperAdmin={true}
+        />
+      )}
+      {showWorkOrderModal && selectedCompanyId && (
+        <WorkOrderModal
+          companyId={selectedCompanyId}
+          onClose={() => {
+            setShowWorkOrderModal(false);
+            setSelectedCompanyId(null);
+          }}
+          onSuccess={() => {
+            setShowWorkOrderModal(false);
+            setSelectedCompanyId(null);
+            toast.success('Work order created successfully');
+          }}
         />
       )}
     </DashboardLayout>

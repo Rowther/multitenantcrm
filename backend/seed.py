@@ -1,6 +1,6 @@
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
 from pathlib import Path
@@ -213,6 +213,27 @@ async def seed_database():
                 await db.work_orders.insert_one(work_order)
     
     print("✅ Created sample work orders")
+    
+    # Create sample preventive tasks for MSAM
+    msam_company = next((c for c in companies_data if c['name'] == 'MSAM Technical Solutions'), None)
+    if msam_company:
+        employees = await db.employees.find({'company_id': msam_company['id']}).to_list(10)
+        if employees:
+            for i in range(2):
+                preventive_task = {
+                    'id': str(uuid.uuid4()),
+                    'company_id': msam_company['id'],
+                    'title': f"Preventive Task {i+1}",
+                    'description': f"Description for preventive task {i+1}",
+                    'asset_location': f"Asset Location {i+1}",
+                    'frequency': ['monthly', 'weekly'][i % 2],
+                    'next_due_date': (datetime.now(timezone.utc) + timedelta(days=30*(i+1))).isoformat(),
+                    'assigned_technicians': [employees[0]['user_id']],
+                    'status': 'ACTIVE',
+                    'created_at': datetime.now(timezone.utc).isoformat()
+                }
+                await db.preventive_tasks.insert_one(preventive_task)
+        print("✅ Created sample preventive tasks for MSAM")
     
     print("\n🎉 Database seeding completed!")
     print("\n📝 Login Credentials:")
