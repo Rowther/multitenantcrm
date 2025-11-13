@@ -2003,12 +2003,22 @@ async def get_activity_logs(
 # Include router
 app.include_router(api_router)
 
+# CORS configuration
+# Get CORS origins from environment variable, defaulting to '*' if not set
+raw_cors_origins = os.environ.get('CORS_ORIGINS', '*')
+if raw_cors_origins == '*':
+    cors_origins = ["*"]
+else:
+    # Split by comma and strip whitespace from each origin
+    cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_origin_regex="https?://(localhost|127\.0\.0\.1)(:\d+)?",
 )
 
 if __name__ == "__main__":
