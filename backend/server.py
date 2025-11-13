@@ -3,9 +3,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, timezone, timedelta
 import os
 import logging
@@ -21,17 +22,29 @@ from reportlab.lib.units import inch
 from io import BytesIO
 import shutil
 from contextlib import asynccontextmanager
+from functools import lru_cache
+import asyncio
+from typing import Dict, Any
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection with better error handling
+# MongoDB connection with better error handling and connection pooling
 mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 if not mongo_url:
     raise ValueError("MONGO_URL environment variable is not set")
 
 try:
-    client = AsyncIOMotorClient(mongo_url)
+    # Configure connection pooling for better performance
+    client = AsyncIOMotorClient(
+        mongo_url,
+        maxPoolSize=50,  # Maximum number of connections in the pool
+        minPoolSize=10,  # Minimum number of connections in the pool
+        maxIdleTimeMS=30000,  # Close connections after 30 seconds of inactivity
+        serverSelectionTimeoutMS=5000,  # Timeout for server selection
+        connectTimeoutMS=5000,  # Timeout for connection
+        socketTimeoutMS=5000,  # Timeout for socket operations
+    )
     db = client[os.environ.get('DB_NAME', 'erp_crm_database')]
 except Exception as e:
     logging.error(f"Failed to connect to MongoDB: {e}")
@@ -45,6 +58,19 @@ JWT_EXPIRATION = 24  # hours
 # Create uploads directory
 UPLOADS_DIR = ROOT_DIR / 'uploads'
 UPLOADS_DIR.mkdir(exist_ok=True)
+
+# Simple in-memory cache for frequently accessed data
+user_cache: Dict[str, Any] = {}
+cache_lock = asyncio.Lock()
+CACHE_TTL = 300  # 5 minutes
+
+class CacheEntry:
+    def __init__(self, data: Dict[str, Any]):
+        self.data = data
+        self.timestamp = datetime.now(timezone.utc)
+    
+    def is_expired(self) -> bool:
+        return (datetime.now(timezone.utc) - self.timestamp).total_seconds() > CACHE_TTL
 
 # Lifespan event handler
 @asynccontextmanager
@@ -395,9 +421,27 @@ def decode_token(token: str) -> Dict[str, Any]:
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     payload = decode_token(token)
-    user = await db.users.find_one({"id": payload['user_id']}, {"_id": 0})
+    user_id = payload['user_id']
+    
+    # Check cache first
+    async with cache_lock:
+        if user_id in user_cache:
+            cache_entry = user_cache[user_id]
+            # Check if it's a CacheEntry object and not expired
+            if isinstance(cache_entry, CacheEntry) and not cache_entry.is_expired():
+                user = cache_entry.data.copy()
+                user['token_payload'] = payload
+                return user
+    
+    # If not in cache or expired, fetch from database
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    
+    # Update cache
+    async with cache_lock:
+        user_cache[user_id] = CacheEntry(user)
+    
     user['token_payload'] = payload
     return user
 
@@ -2003,6 +2047,9 @@ async def get_activity_logs(
 # Include router
 app.include_router(api_router)
 
+# Add GZip compression middleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # CORS configuration
 # Get CORS origins from environment variable, defaulting to '*' if not set
 raw_cors_origins = os.environ.get('CORS_ORIGINS', '*')
@@ -2025,4 +2072,20 @@ if __name__ == "__main__":
     import uvicorn
     import os
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+    # Production optimizations
+    workers = int(os.environ.get("WEB_CONCURRENCY", 4))
+    uvicorn.run(
+        "server:app",
+        host="0.0.0.0",
+        port=port,
+        workers=workers,
+        reload=False,
+        timeout_keep_alive=5,
+        # Limit memory usage
+        limit_concurrency=100,
+        limit_max_requests=1000,
+        # Enable HTTP/2 if available
+        # http='h2',
+        # Enable lifespan events
+        lifespan="on"
+    )
