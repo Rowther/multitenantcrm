@@ -2059,6 +2059,32 @@ else:
     # Split by comma and strip whitespace from each origin
     cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
 
+# Add custom CORS middleware to ensure proper headers
+@app.middleware("http")
+async def add_cors_headers(request, call_next):
+    response = await call_next(request)
+    origin = request.headers.get('origin')
+    
+    # Always allow localhost origins
+    if origin and ('localhost' in origin or '127.0.0.1' in origin):
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    # Also allow production origins
+    elif origin and any(allowed_origin in origin for allowed_origin in cors_origins if allowed_origin != "*"):
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    # Allow all origins if configured
+    elif "*" in cors_origins:
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
