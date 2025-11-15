@@ -21,7 +21,16 @@ const Login = ({ onLogin }) => {
       toast.success('Login successful!');
       onLogin(response.data.user, response.data.token);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Login failed');
+      console.error('Login error:', error);
+      if (error.code === 'ERR_NETWORK') {
+        toast.error('Network error. Please check if the backend server is running.');
+      } else if (error.response?.status === 401) {
+        toast.error('Invalid email or password');
+      } else if (error.response?.status === 403) {
+        toast.error('Account is inactive');
+      } else {
+        toast.error(error.response?.data?.detail || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

@@ -2325,7 +2325,7 @@ async def add_cors_headers(request, call_next):
     response = await call_next(request)
     origin = request.headers.get('origin')
     
-    # Always allow localhost origins
+    # Always allow common localhost origins
     if origin and ('localhost' in origin or '127.0.0.1' in origin):
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
