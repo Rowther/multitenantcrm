@@ -2345,21 +2345,13 @@ async def add_cors_headers(request, call_next):
     
     return response
 
-# Add GZip compression middleware
-app.add_middleware(GZipMiddleware, minimum_size=500)  # Reduced minimum size for more aggressive compression
-
-# CORS configuration
-# Get CORS origins from environment variable
-raw_cors_origins = os.environ.get('CORS_ORIGINS', 'https://multitenantcrm.vercel.app,http://localhost:3000,http://localhost:5173')
-cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
-
-# Add CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_origin_regex="https?://(localhost|127\.0\.0\.1)(:\d+)?",
 )
 
 if __name__ == "__main__":
