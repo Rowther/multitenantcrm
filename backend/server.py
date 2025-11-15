@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, File, UploadFile, Query, Form
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -25,6 +26,7 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 import asyncio
 from typing import Dict, Any
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -2318,6 +2320,25 @@ if raw_cors_origins == '*':
 else:
     # Split by comma and strip whitespace from each origin
     cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
+
+# Handle preflight requests
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(request):
+    response = Response()
+    origin = request.headers.get('origin')
+    
+    # Set CORS headers for preflight requests
+    if origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+    elif "*" in cors_origins:
+        response.headers['Access-Control-Allow-Origin'] = '*'
+    
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Max-Age'] = '86400'  # 24 hours
+    
+    return response
 
 # Add custom CORS middleware to ensure proper headers
 @app.middleware("http")
