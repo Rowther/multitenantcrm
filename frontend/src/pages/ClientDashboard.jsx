@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { API } from '../App';
 import DashboardLayout from '../components/DashboardLayout';
 import { Card } from '../components/ui/card';
@@ -16,6 +17,7 @@ const ClientDashboard = ({ user, onLogout }) => {
   const [clients, setClients] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+  const navigate = useNavigate();
 
   const fetchData = async (page = 1, filters = {}) => {
     try {
@@ -63,6 +65,12 @@ const ClientDashboard = ({ user, onLogout }) => {
     fetchData();
   }, []);
 
+  // Handle view work order details (clients can only view, not edit)
+  const handleViewWorkOrder = (workOrder) => {
+    // Navigate to work order details page
+    navigate(`/companies/${user.company_id}/workorders/${workOrder.id}`);
+  };
+
   const handleFilterChange = async (filters) => {
     try {
       const params = { page: 1, limit: 10, client_id: user.client_id || user.id };
@@ -98,12 +106,6 @@ const ClientDashboard = ({ user, onLogout }) => {
   // Handle page change
   const handlePageChange = (newPage) => {
     fetchData(newPage);
-  };
-
-  // Handle view work order details (clients can only view, not edit)
-  const handleViewWorkOrder = (workOrder) => {
-    // Navigate to work order details page
-    window.location.hash = `#/companies/${user.company_id}/workorders/${workOrder.id}`;
   };
 
   if (loading) {

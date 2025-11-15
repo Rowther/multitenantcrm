@@ -24,7 +24,7 @@ const CommentsSection = ({ workOrderId, companyId, user, onRefresh }) => {
       const response = await axios.get(`${API}/companies/${companyId}/workorders/${workOrderId}/comments`);
       setComments(response.data);
     } catch (error) {
-      console.error('Failed to fetch comments', error);
+      // console.error('Failed to fetch comments', error);
     } finally {
       setLoading(false);
     }

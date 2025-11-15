@@ -13,6 +13,7 @@ import ClientDashboard from './pages/ClientDashboard';
 import PreventiveMaintenancePage from './pages/PreventiveMaintenancePage';
 import VehiclesPage from './pages/VehiclesPage';
 import ReportsPage from './pages/ReportsPage';
+import SuperAdminReportsPage from './pages/SuperAdminReportsPage'; // Add SuperAdminReportsPage import
 import CompanyDetails from './pages/CompanyDetails';
 import WorkOrdersPage from './pages/WorkOrdersPage';
 import WorkOrderDetailsPage from './pages/WorkOrderDetailsPage';
@@ -58,7 +59,7 @@ function App() {
             const companyResponse = await axios.get(`${API}/companies/${response.data.company_id}`);
             setUserCompany(companyResponse.data);
           } catch (error) {
-            console.error('Error fetching company data:', error);
+            // console.error('Error fetching company data:', error);
           }
         }
       } catch (error) {
@@ -80,7 +81,6 @@ function App() {
     if (actualUser.role === 'ADMIN' && actualUser.company_id) {
       axios.get(`${API}/companies/${actualUser.company_id}`)
         .then(response => setUserCompany(response.data))
-        .catch(error => console.error('Error fetching company data:', error));
     }
   };
 
@@ -146,10 +146,10 @@ function App() {
           />
           <Route path="/" element={<ProtectedRoute><div>{getDashboard()}</div></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}><UsersPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}>{user?.role === 'SUPERADMIN' ? <SuperAdminDashboard user={user} onLogout={handleLogout} /> : <ReportsPage user={user} onLogout={handleLogout} />}</ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}>{user?.role === 'SUPERADMIN' ? <SuperAdminReportsPage user={user} onLogout={handleLogout} /> : <ReportsPage user={user} onLogout={handleLogout} />}</ProtectedRoute>} />
           <Route path="/logs-dev" element={<ProtectedRoute allowedRoles={['SUPERADMIN']}><LogsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} /> {/* Added logs route */}
           <Route path="/companies/:companyId" element={<ProtectedRoute allowedRoles={['SUPERADMIN']}><CompanyDetails user={user} onLogout={handleLogout} /></ProtectedRoute>} />
-          <Route path="/companies/:companyId/workorders/:workOrderId" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'CLIENT']}><WorkOrderDetailsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/companies/:companyId/workorders/:workOrderId" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'EMPLOYEE', 'CLIENT']}><WorkOrderDetailsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
           <Route path="/work-orders" element={<ProtectedRoute allowedRoles={['ADMIN']}><WorkOrdersPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
           <Route path="/clients" element={<ProtectedRoute allowedRoles={['ADMIN']}><ClientsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute allowedRoles={['ADMIN']}><EmployeesPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />

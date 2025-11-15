@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { API } from '../App';
 import DashboardLayout from '../components/DashboardLayout';
 import { Card } from '../components/ui/card';
@@ -26,6 +27,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [clients, setClients] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchData();
@@ -72,10 +74,15 @@ const AdminDashboard = ({ user, onLogout }) => {
       }, {});
       
       setStats({
-        totalClients: clientsRes.data.length,
-        totalEmployees: employeesRes.data.length,
+        total_work_orders: workOrdersData.length,
         totalWorkOrders: workOrdersData.length,
-        totalRevenue,
+        total_revenue: totalRevenue,
+        totalRevenue: totalRevenue,
+        active_clients: clientsRes.data.length,
+        activeClients: clientsRes.data.length,
+        profit_margin: totalRevenue * 0.3, // Assuming 30% profit margin
+        profitMargin: totalRevenue * 0.3,
+        status_breakdown: workOrdersByStatus,
         workOrdersByStatus
       });
       
@@ -147,6 +154,12 @@ const AdminDashboard = ({ user, onLogout }) => {
     toast.success('Work order created successfully');
   };
 
+  // Handle view work order - navigate to work order details page
+  const handleViewWorkOrder = (workOrder) => {
+    console.log('Navigating to work order details for:', workOrder);
+    navigate(`/companies/${user.company_id}/workorders/${workOrder.id}`);
+  };
+
   // Handle filter changes
   const handleFilterChange = async (filters) => {
     try {
@@ -216,7 +229,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-blue-700 font-medium">Total Work Orders</p>
-                <p className="text-3xl font-bold text-blue-900 mt-2">{stats?.total_work_orders || 0}</p>
+                <p className="text-3xl font-bold text-blue-900 mt-2">{stats?.total_work_orders || stats?.totalWorkOrders || 0}</p>
               </div>
               <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
                 <FileText className="w-6 h-6 text-white" />
@@ -228,7 +241,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-green-700 font-medium">Revenue</p>
-                <p className="text-3xl font-bold text-green-900 mt-2">AED {stats?.total_revenue.toFixed(0) || 0}</p>
+                <p className="text-3xl font-bold text-green-900 mt-2">AED {(stats?.total_revenue || stats?.totalRevenue || 0).toFixed(0)}</p>
               </div>
               <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
                 <DollarSign className="w-6 h-6 text-white" />
@@ -240,7 +253,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-amber-700 font-medium">Profit Margin</p>
-                <p className="text-3xl font-bold text-amber-900 mt-2">AED {stats?.profit_margin.toFixed(0) || 0}</p>
+                <p className="text-3xl font-bold text-amber-900 mt-2">AED {(stats?.profit_margin || stats?.profitMargin || 0).toFixed(0)}</p>
               </div>
               <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-white" />
@@ -252,7 +265,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-purple-700 font-medium">Active Clients</p>
-                <p className="text-3xl font-bold text-purple-900 mt-2">{stats?.active_clients || 0}</p>
+                <p className="text-3xl font-bold text-purple-900 mt-2">{stats?.active_clients || stats?.activeClients || 0}</p>
               </div>
               <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
                 <Users className="w-6 h-6 text-white" />
@@ -262,11 +275,11 @@ const AdminDashboard = ({ user, onLogout }) => {
         </div>
 
         {/* Work Orders by Status - Replaced Chart with Cards */}
-        {stats?.status_breakdown && (
+        {(stats?.status_breakdown || stats?.workOrdersByStatus) && (
           <Card className="p-6">
             <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Work Orders by Status</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(stats.status_breakdown).map(([status, count]) => (
+              {Object.entries(stats.status_breakdown || stats.workOrdersByStatus).map(([status, count]) => (
                 <Card key={status} className="p-4 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-center">
                     <h3 className="font-semibold text-slate-800">{status}</h3>
@@ -275,7 +288,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
                     <div 
                       className="bg-blue-600 h-2 rounded-full" 
-                      style={{ width: `${(count / Math.max(...Object.values(stats.status_breakdown)) * 100)}%` }}
+                      style={{ width: `${(count / Math.max(...Object.values(stats.status_breakdown || stats.workOrdersByStatus)) * 100)}%` }}
                     ></div>
                   </div>
                 </Card>
@@ -297,6 +310,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             workOrders={filteredWorkOrders} 
             companyId={user.company_id} 
             onRefresh={() => fetchData(pagination.page)} 
+            onViewWorkOrder={handleViewWorkOrder}
             pagination={pagination}
             onPageChange={handlePageChange}
           />

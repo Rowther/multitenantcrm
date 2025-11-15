@@ -36,6 +36,7 @@ const constructAttachmentUrl = (attachmentPath) => {
 };
 
 const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
+
   const [workOrder, setWorkOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState(null);
@@ -64,19 +65,20 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
   };
 
   useEffect(() => {
+    
     fetchData();
   }, [workOrderId, companyId]);
 
   const fetchData = async () => {
+
     setLoading(true);
     try {
       // Fetch work order details
       const woResponse = await axios.get(`${API}/companies/${companyId}/workorders/${workOrderId}`);
+
       setWorkOrder(woResponse.data);
       
-      // Debug: Log the attachments to see what we're getting
-      console.log('Work Order Data:', woResponse.data);
-      console.log('Work Order Attachments:', woResponse.data.attachments);
+
 
       // Fetch client details if exists
       if (woResponse.data.requested_by_client_id) {
@@ -85,7 +87,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
           const clientData = clientResponse.data.find(c => c.id === woResponse.data.requested_by_client_id);
           setClient(clientData);
         } catch (e) {
-          console.log('Failed to fetch client data');
+          // console.log('Failed to fetch client data');
         }
       }
 
@@ -98,7 +100,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
           );
           setTechnicians(techData);
         } catch (e) {
-          console.log('Failed to fetch technician data');
+          // console.log('Failed to fetch technician data');
         }
       }
 
@@ -109,10 +111,11 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
           const vehicleData = vehiclesResponse.data.find(v => v.id === woResponse.data.vehicle_id);
           setVehicle(vehicleData);
         } catch (e) {
-          console.log('Failed to fetch vehicle data');
+          // console.log('Failed to fetch vehicle data');
         }
       }
     } catch (error) {
+      // console.error('Error fetching work order details:', error);
       toast.error('Failed to fetch work order details');
     } finally {
       setLoading(false);
@@ -148,10 +151,12 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
   };
 
   if (loading) {
+    // console.log('WorkOrderDetails is in loading state');
     return <div className="flex items-center justify-center h-64">Loading work order details...</div>;
   }
 
   if (!workOrder) {
+    // console.log('WorkOrderDetails: No work order data found');
     return <div className="text-center py-12 text-slate-500">Work order not found</div>;
   }
 
@@ -300,8 +305,8 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
               let displayUrl = constructAttachmentUrl(attachment);
               
               // Debug: Log the attachment processing
-              console.log('Processing attachment:', attachment);
-              console.log('Constructed display URL:', displayUrl);
+              // console.log('Processing attachment:', attachment);
+              // console.log('Constructed display URL:', displayUrl);
               
               // Check if it's an image file
               const isImage = displayUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
@@ -315,7 +320,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
                       className="w-full h-32 object-cover"
                       onError={(e) => {
                         // Debug: Log when image fails to load
-                        console.log('Image failed to load:', displayUrl);
+                        // console.log('Image failed to load:', displayUrl);
                         // If image fails to load, show fallback
                         e.target.onerror = null;
                         e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2NjYyIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+SW1hZ2UgTm90IEZvdW5kPC90ZXh0Pjwvc3ZnPg==';

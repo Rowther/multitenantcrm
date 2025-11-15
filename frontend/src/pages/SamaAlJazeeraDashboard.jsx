@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { API } from '../App';
 import DashboardLayout from '../components/DashboardLayout';
 import { Card } from '../components/ui/card';
@@ -21,6 +22,7 @@ const SamaAlJazeeraDashboard = ({ user, onLogout }) => {
   const [clients, setClients] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+  const navigate = useNavigate();
 
   const fetchData = async (page = 1, filters = {}) => {
     try {
@@ -71,6 +73,11 @@ const SamaAlJazeeraDashboard = ({ user, onLogout }) => {
     setShowWorkOrderModal(false);
     fetchData();
     toast.success('Work order created successfully');
+  };
+
+  // Handle view work order - navigate to work order details page
+  const handleViewWorkOrder = (workOrder) => {
+    navigate(`/companies/${user.company_id}/workorders/${workOrder.id}`);
   };
 
   const handleFilterChange = async (filters) => {
@@ -223,6 +230,7 @@ const SamaAlJazeeraDashboard = ({ user, onLogout }) => {
             workOrders={filteredWorkOrders} 
             companyId={user.company_id} 
             onRefresh={() => fetchData(pagination.page)} 
+            onViewWorkOrder={handleViewWorkOrder}
             pagination={pagination}
             onPageChange={handlePageChange}
           />

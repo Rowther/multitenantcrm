@@ -25,7 +25,7 @@ const InvoiceGenerator = ({ workOrderId, companyId, quotedPrice }) => {
       const workOrderInvoices = response.data.filter(invoice => invoice.work_order_id === workOrderId);
       setInvoices(workOrderInvoices);
     } catch (error) {
-      console.error('Failed to fetch invoices', error);
+      // console.error('Failed to fetch invoices', error);
     }
   };
 

@@ -37,7 +37,7 @@ const EmployeeModal = ({ companyId, employee, onClose, onSuccess }) => {
       // For now, we'll just show a message
       toast.info('User selection would be implemented in a full version');
     } catch (error) {
-      console.error('Failed to fetch users:', error);
+      // console.error('Failed to fetch users:', error);
     }
   };
 

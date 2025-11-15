@@ -10,6 +10,7 @@ const WorkOrdersList = ({
   isEmployee = false, 
   onEditWorkOrder, 
   onViewWorkOrder,
+  onSelectWorkOrder,
   pagination,
   onPageChange
 }) => {
@@ -31,9 +32,16 @@ const WorkOrdersList = ({
 
   // Handle view button click - pass the work order to parent
   const handleViewClick = (workOrder) => {
-    // Pass the selected work order to the parent component
-    if (onViewWorkOrder) {
-      onViewWorkOrder(workOrder);
+    try {
+      // Pass the selected work order to the parent component
+      // Check for both onViewWorkOrder and onSelectWorkOrder for backward compatibility
+      if (onViewWorkOrder) {
+        onViewWorkOrder(workOrder);
+      } else if (onSelectWorkOrder) {
+        onSelectWorkOrder(workOrder);
+      }
+    } catch (error) {
+      // console.error('Error in handleViewClick:', error);
     }
   };
 
@@ -184,7 +192,10 @@ const WorkOrdersList = ({
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      onClick={() => handleViewClick(wo)}
+                      onClick={() => {
+                        // console.log('Eye button clicked directly with work order:', wo);
+                        handleViewClick(wo);
+                      }}
                       data-testid={`view-workorder-${wo.id}`}
                     >
                       <Eye className="w-4 h-4" />

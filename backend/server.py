@@ -38,14 +38,17 @@ try:
     # Configure connection pooling for better performance
     client = AsyncIOMotorClient(
         mongo_url,
-        maxPoolSize=200,  # Further increased maximum number of connections in the pool
-        minPoolSize=50,  # Further increased minimum number of connections in the pool
-        maxIdleTimeMS=30000,  # Reduced close connections after 30 seconds of inactivity
-        serverSelectionTimeoutMS=2000,  # Further reduced timeout for server selection
-        connectTimeoutMS=2000,  # Further reduced timeout for connection
-        socketTimeoutMS=2000,  # Further reduced timeout for socket operations
-        maxConnecting=10,  # Limit concurrent connection attempts
+        maxPoolSize=100,  # Maximum number of connections in the pool
+        minPoolSize=10,  # Minimum number of connections in the pool
+        maxIdleTimeMS=30000,  # Close connections after 30 seconds of inactivity
+        serverSelectionTimeoutMS=5000,  # Timeout for server selection
+        connectTimeoutMS=5000,  # Timeout for connection
+        socketTimeoutMS=5000,  # Timeout for socket operations
+        maxConnecting=5,  # Limit concurrent connection attempts
         waitQueueTimeoutMS=5000,  # Timeout for waiting for a connection
+        retryWrites=True,  # Enable retryable writes
+        retryReads=True,  # Enable retryable reads
+        connect=False,  # Connect lazily - don't connect immediately
     )
     db = client[os.environ.get('DB_NAME', 'erp_crm_database')]
 except Exception as e:
@@ -116,114 +119,114 @@ async def lifespan(app: FastAPI):
         # Users collection indexes
         try:
             await db.users.create_index("email")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on users.email: {e}")
         try:
             await db.users.create_index("company_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on users.company_id: {e}")
         try:
             await db.users.create_index("role")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on users.role: {e}")
         
         # Companies collection indexes
         try:
             await db.companies.create_index("id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on companies.id: {e}")
         
         # Clients collection indexes
         try:
             await db.clients.create_index("company_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on clients.company_id: {e}")
         
         # Employees collection indexes
         try:
             await db.employees.create_index("company_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on employees.company_id: {e}")
         try:
             await db.employees.create_index("user_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on employees.user_id: {e}")
         
         # Work Orders collection indexes
         try:
             await db.work_orders.create_index([("company_id", 1), ("status", 1)])
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on work_orders company_id+status: {e}")
         try:
             await db.work_orders.create_index([("company_id", 1), ("assigned_technicians", 1)])
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on work_orders company_id+assigned_technicians: {e}")
         try:
             await db.work_orders.create_index([("company_id", 1), ("requested_by_client_id", 1)])
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on work_orders company_id+requested_by_client_id: {e}")
         try:
             await db.work_orders.create_index("created_at")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on work_orders.created_at: {e}")
         try:
             await db.work_orders.create_index("order_number")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on work_orders.order_number: {e}")
         
         # Invoices collection indexes
         try:
             await db.invoices.create_index([("company_id", 1), ("status", 1)])
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on invoices company_id+status: {e}")
         try:
             await db.invoices.create_index("work_order_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on invoices.work_order_id: {e}")
         try:
             await db.invoices.create_index("invoice_number")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on invoices.invoice_number: {e}")
         
         # Vehicles collection indexes
         try:
             await db.vehicles.create_index("company_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on vehicles.company_id: {e}")
         try:
             await db.vehicles.create_index("plate_number")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on vehicles.plate_number: {e}")
         
         # Comments collection indexes
         try:
             await db.comments.create_index("work_order_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on comments.work_order_id: {e}")
         try:
             await db.comments.create_index("company_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on comments.company_id: {e}")
         
         # Preventive Tasks collection indexes
         try:
             await db.preventive_tasks.create_index("company_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on preventive_tasks.company_id: {e}")
         try:
             await db.preventive_tasks.create_index("vehicle_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on preventive_tasks.vehicle_id: {e}")
         
         # Notifications collection indexes
         try:
             await db.notifications.create_index("user_id")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on notifications.user_id: {e}")
         try:
             await db.notifications.create_index("sent_at")
-        except Exception:
-            pass  # Index might already exist
+        except Exception as e:
+            logger.warning(f"Could not create index on notifications.sent_at: {e}")
         
         logger.info("Database indexes processed successfully")
     except Exception as e:
@@ -1919,6 +1922,96 @@ async def get_companies_summary(current_user: dict = Depends(get_current_user)):
         })
     
     return {"companies": summary}
+
+
+@api_router.get("/superadmin/reports/all-workorders-profit")
+async def get_all_workorders_profit(current_user: dict = Depends(get_current_user)):
+    if current_user['role'] != 'SUPERADMIN':
+        raise HTTPException(status_code=403, detail="Only SuperAdmin can access this report")
+    
+    # Get all companies
+    companies = await db.companies.find({}, {"_id": 0}).to_list(100)
+    
+    # Get all work orders across all companies
+    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(10000)
+    
+    # Get all invoices across all companies
+    invoices = await db.invoices.find({}, {"_id": 0}).to_list(10000)
+    
+    # Get all expenses across all companies
+    expenses = await db.expenses.find({}, {"_id": 0}).to_list(10000)
+    
+    # Create mappings
+    work_order_expenses = {}
+    for expense in expenses:
+        wo_id = expense['work_order_id']
+        if wo_id not in work_order_expenses:
+            work_order_expenses[wo_id] = []
+        work_order_expenses[wo_id].append(expense)
+    
+    work_order_invoices = {}
+    for invoice in invoices:
+        wo_id = invoice['work_order_id']
+        if wo_id not in work_order_invoices:
+            work_order_invoices[wo_id] = []
+        work_order_invoices[wo_id].append(invoice)
+    
+    # Create company mapping for quick lookup
+    company_map = {company['id']: company for company in companies}
+    
+    # Prepare detailed report data
+    details = []
+    for wo in work_orders:
+        wo_id = wo['id']
+        company_id = wo['company_id']
+        wo_expenses = work_order_expenses.get(wo_id, [])
+        wo_invoices = work_order_invoices.get(wo_id, [])
+        
+        # Calculate totals
+        total_expenses = sum(exp['amount'] for exp in wo_expenses)
+        # Include both issued and paid invoices in revenue calculation
+        total_revenue = sum(inv['total_amount'] for inv in wo_invoices if inv['status'] in ['ISSUED', 'PAID'])
+        profit_loss = total_revenue - total_expenses
+        
+        # Get client information
+        client_name = "Unknown"
+        if wo.get('requested_by_client_id'):
+            client = await db.clients.find_one({
+                "id": wo['requested_by_client_id'], 
+                "company_id": company_id
+            }, {"_id": 0, "name": 1})
+            if client:
+                client_name = client['name']
+        
+        # Get technician information
+        assigned_technicians = wo.get('assigned_technicians', [])
+        technician_names = []
+        for tech_id in assigned_technicians:
+            tech_user = await db.users.find_one({"id": tech_id}, {"_id": 0, "display_name": 1})
+            if tech_user:
+                technician_names.append(tech_user.get('display_name', 'Unknown Technician'))
+            else:
+                technician_names.append('Unknown Technician')
+        
+        # Get company name
+        company_name = company_map.get(company_id, {}).get('name', 'Unknown Company')
+        
+        details.append({
+            "work_order_id": wo_id,
+            "order_number": wo.get('order_number', ''),
+            "title": wo.get('title', ''),
+            "company_name": company_name,
+            "client_name": client_name,
+            "status": wo.get('status', ''),
+            "quoted_price": wo.get('quoted_price', 0),
+            "total_expenses": total_expenses,
+            "total_revenue": total_revenue,
+            "profit_loss": profit_loss,
+            "assigned_technicians": assigned_technicians,
+            "technician_names": technician_names
+        })
+    
+    return {"details": details}
 
 # =======================
 # Activity Logs Endpoint

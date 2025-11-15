@@ -24,16 +24,18 @@ const ReportsPage = ({ user, onLogout }) => {
       const response = await axios.get(`${API}/companies/${user.company_id}/reports/overview`);
       setReportData(response.data);
     } catch (error) {
-      toast.error('Failed to fetch report data');
+      console.error('Failed to fetch report data:', error);
+      toast.error('Failed to fetch report data: ' + error.message);
     }
   };
 
   const fetchDetailedData = async () => {
     try {
       const response = await axios.get(`${API}/companies/${user.company_id}/reports/profit-loss-details`);
-      setDetailedData(response.data.details);
+      setDetailedData(response.data.details || response.data);
     } catch (error) {
-      toast.error('Failed to fetch detailed report data');
+      console.error('Failed to fetch detailed report data:', error);
+      toast.error('Failed to fetch detailed report data: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -201,7 +203,7 @@ const ReportsPage = ({ user, onLogout }) => {
                       <div 
                         className="h-2 rounded-full" 
                         style={{ 
-                          width: `${(item.value / Math.max(...statusData.map(d => d.value)) * 100)}%`,
+                          width: `${statusData.length > 0 ? (item.value / Math.max(...statusData.map(d => d.value)) * 100) : 0}%`,
                           backgroundColor: COLORS[index % COLORS.length]
                         }}
                       ></div>
@@ -230,24 +232,32 @@ const ReportsPage = ({ user, onLogout }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {detailedData.map((order) => (
-                    <TableRow key={order.work_order_id}>
-                      <TableCell className="font-medium">{order.order_number}</TableCell>
-                      <TableCell>{order.title}</TableCell>
-                      <TableCell>{order.client_name}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(order.status)}`}>
-                          {order.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">AED {order.quoted_price.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">AED {order.total_expenses.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">AED {order.total_revenue.toFixed(2)}</TableCell>
-                      <TableCell className={`text-right ${getProfitLossClass(order.profit_loss)}`}>
-                        AED {order.profit_loss.toFixed(2)}
+                  {detailedData && detailedData.length > 0 ? (
+                    detailedData.map((order) => (
+                      <TableRow key={order.work_order_id}>
+                        <TableCell className="font-medium">{order.order_number}</TableCell>
+                        <TableCell>{order.title}</TableCell>
+                        <TableCell>{order.client_name}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(order.status)}`}>
+                            {order.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">AED {order.quoted_price?.toFixed(2) || '0.00'}</TableCell>
+                        <TableCell className="text-right">AED {order.total_expenses?.toFixed(2) || '0.00'}</TableCell>
+                        <TableCell className="text-right">AED {order.total_revenue?.toFixed(2) || '0.00'}</TableCell>
+                        <TableCell className={`text-right ${getProfitLossClass(order.profit_loss)}`}>
+                          AED {order.profit_loss?.toFixed(2) || '0.00'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan="8" className="text-center py-8 text-slate-500">
+                        No detailed data available
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>

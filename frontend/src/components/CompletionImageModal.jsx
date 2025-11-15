@@ -30,7 +30,7 @@ const CompletionImageModal = ({ workOrderId, companyId, onClose, onSuccess, comp
         });
         
         // Debug: Log the upload response
-        console.log('Upload Response:', response.data);
+        // console.log('Upload Response:', response.data);
         
         // Add uploaded file to state
         setUploadedFiles(prev => [...prev, {
@@ -41,7 +41,7 @@ const CompletionImageModal = ({ workOrderId, companyId, onClose, onSuccess, comp
         
         toast.success(`File ${file.name} uploaded successfully`);
       } catch (error) {
-        console.error('Upload error:', error);
+        // console.error('Upload error:', error);
         toast.error(`Failed to upload ${file.name}: ${error.response?.data?.detail || error.message || 'Unknown error'}`);
       }
     }
@@ -64,31 +64,31 @@ const CompletionImageModal = ({ workOrderId, companyId, onClose, onSuccess, comp
       const currentWorkOrder = workOrderResponse.data;
       
       // Debug: Log current work order and uploaded files
-      console.log('Current Work Order:', currentWorkOrder);
-      console.log('Uploaded Files:', uploadedFiles);
+      // console.log('Current Work Order:', currentWorkOrder);
+      // console.log('Uploaded Files:', uploadedFiles);
       
       // Extract just the URLs from uploaded files
       const newAttachmentUrls = uploadedFiles.map(file => file.url);
       
-      console.log('New Attachment URLs:', newAttachmentUrls);
+      // console.log('New Attachment URLs:', newAttachmentUrls);
       
       // Combine existing attachments with new completion images
       const allAttachments = [...(currentWorkOrder.attachments || []), ...newAttachmentUrls];
       
-      console.log('All Attachments:', allAttachments);
+      // console.log('All Attachments:', allAttachments);
       
       // Update work order with completion images
       const updateResponse = await axios.put(`${API}/companies/${companyId}/workorders/${workOrderId}`, {
         status: 'COMPLETED',
         attachments: allAttachments
       });
-      
-      console.log('Update Response:', updateResponse.data);
+      // 
+      // console.log('Update Response:', updateResponse.data);
       
       toast.success('Work order completed successfully with completion images');
       onSuccess();
     } catch (error) {
-      console.error('Completion Error:', error);
+      // console.error('Completion Error:', error);
       toast.error(error.response?.data?.detail || 'Failed to complete work order');
     } finally {
       setLoading(false);

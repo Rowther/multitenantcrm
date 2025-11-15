@@ -16,7 +16,7 @@ const DashboardLayout = ({ user, children, onLogout }) => {
     if (user.role === 'ADMIN' && user.company_id) {
       axios.get(`${API}/companies/${user.company_id}`)
         .then(response => setCompany(response.data))
-        .catch(error => console.error('Error fetching company data:', error));
+        // .catch(error => console.error('Error fetching company data:', error));
     }
   }, [user]);
 

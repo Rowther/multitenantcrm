@@ -87,7 +87,7 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
       // Refresh work orders to show updated payment status
       fetchClientWorkOrders();
     } catch (error) {
-      console.error('Payment error:', error);
+      // console.error('Payment error:', error);
       if (error.response && error.response.data && error.response.data.detail) {
         toast.error(error.response.data.detail);
       } else {

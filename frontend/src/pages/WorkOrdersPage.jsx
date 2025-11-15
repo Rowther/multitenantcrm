@@ -26,7 +26,10 @@ const WorkOrdersPage = ({ user, onLogout }) => {
     pages: 1
   });
 
+
+  
   useEffect(() => {
+    
     fetchData();
   }, []);
 
@@ -70,12 +73,16 @@ const WorkOrdersPage = ({ user, onLogout }) => {
 
   const handleEditWorkOrder = (workOrder) => {
     // Implementation for editing work order
-    console.log('Edit work order', workOrder);
+
   };
 
   // Handle when a work order is selected from the list
   const handleWorkOrderSelect = (workOrder) => {
-    setSelectedWorkOrder(workOrder);
+    try {
+      setSelectedWorkOrder(workOrder);
+    } catch (error) {
+      // console.error('Error in handleWorkOrderSelect:', error);
+    }
   };
 
   // Handle filter changes
@@ -120,15 +127,20 @@ const WorkOrdersPage = ({ user, onLogout }) => {
 
   // If a work order is selected, show its details
   if (selectedWorkOrder) {
+
     return (
       <DashboardLayout user={user} onLogout={onLogout}>
         <WorkOrderDetails 
           workOrderId={selectedWorkOrder.id} 
           companyId={user.company_id} 
-          onBack={() => setSelectedWorkOrder(null)}
+          onBack={() => {
+
+            setSelectedWorkOrder(null);
+          }}
           onEdit={(workOrder) => {
             // For now, just go back to list view
             // In the future, we can implement edit functionality
+
             setSelectedWorkOrder(null);
           }}
           user={user}

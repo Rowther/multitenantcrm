@@ -49,7 +49,7 @@ const ClientModal = ({ companyId, client, onClose, onSuccess }) => {
       // Call onSuccess with the response data
       onSuccess(response.data);
     } catch (error) {
-      console.error('Client save error:', error);
+      // console.error('Client save error:', error);
       toast.error(error.response?.data?.detail || 'Failed to save client');
     } finally {
       setLoading(false);
