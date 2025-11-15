@@ -2321,51 +2321,50 @@ else:
     # Split by comma and strip whitespace from each origin
     cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
 
-# Handle preflight requests
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(request):
-    response = Response()
-    origin = request.headers.get('origin')
-    
-    # Set CORS headers for preflight requests
-    if origin:
-        response.headers['Access-Control-Allow-Origin'] = origin
-    elif "*" in cors_origins:
-        response.headers['Access-Control-Allow-Origin'] = '*'
-    
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    response.headers['Access-Control-Max-Age'] = '86400'  # 24 hours
-    
-    return response
-
-# Add custom CORS middleware to ensure proper headers
+# Add comprehensive CORS middleware
 @app.middleware("http")
 async def add_cors_headers(request, call_next):
-    response = await call_next(request)
+    # Handle preflight requests directly
+    if request.method == "OPTIONS":
+        response = Response(status_code=200)
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "86400"
+        return response
+
+    # Process the actual request
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        # Handle any exceptions that occur during request processing
+        response = Response(content="Internal Server Error", status_code=500)
+    
+    # Add CORS headers to the response
     origin = request.headers.get('origin')
     
-    # Always allow common localhost origins
-    if origin and ('localhost' in origin or '127.0.0.1' in origin):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    # Also allow production origins
-    elif origin and any(allowed_origin in origin for allowed_origin in cors_origins if allowed_origin != "*"):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    # Allow all origins if configured
+    # Check if origin is in our allowed list
+    if origin:
+        if "*" in cors_origins:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        elif origin in cors_origins or any(allowed_origin in origin for allowed_origin in cors_origins):
+            response.headers["Access-Control-Allow-Origin"] = origin
+        # Also allow localhost origins for development
+        elif 'localhost' in origin or '127.0.0.1' in origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
     elif "*" in cors_origins:
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    
+    # Add other CORS headers
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     
     return response
 
+# Remove the separate preflight handler since we're handling it in the middleware
+# Keep the CORSMiddleware for additional protection
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
