@@ -9,7 +9,7 @@ const WorkOrdersList = ({
   onRefresh, 
   isEmployee = false, 
   onEditWorkOrder, 
-  onSelectWorkOrder,
+  onViewWorkOrder,
   pagination,
   onPageChange
 }) => {
@@ -32,8 +32,8 @@ const WorkOrdersList = ({
   // Handle view button click - pass the work order to parent
   const handleViewClick = (workOrder) => {
     // Pass the selected work order to the parent component
-    if (onSelectWorkOrder) {
-      onSelectWorkOrder(workOrder);
+    if (onViewWorkOrder) {
+      onViewWorkOrder(workOrder);
     }
   };
 

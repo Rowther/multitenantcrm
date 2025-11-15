@@ -56,6 +56,24 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
+  // Calculate total revenue safely
+  const calculateTotalRevenue = () => {
+    if (!summary || !summary.companies) return 0;
+    return summary.companies.reduce((sum, c) => {
+      const revenue = parseFloat(c.total_revenue) || 0;
+      return sum + revenue;
+    }, 0);
+  };
+
+  // Calculate total work orders safely
+  const calculateTotalWorkOrders = () => {
+    if (!summary || !summary.companies) return 0;
+    return summary.companies.reduce((sum, c) => {
+      const workOrders = parseInt(c.total_work_orders) || 0;
+      return sum + workOrders;
+    }, 0);
+  };
+
   return (
     <DashboardLayout user={user} onLogout={onLogout} onUpdateUser={onUpdateUser}>
       <div className="space-y-6" data-testid="superadmin-dashboard">
@@ -92,7 +110,7 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
               <div>
                 <p className="text-sm text-green-700 font-medium">Total Revenue</p>
                 <p className="text-3xl font-bold text-green-900 mt-2">
-                  {(summary?.companies.reduce((sum, c) => sum + c.total_revenue, 0).toFixed(0) || 0)} AED
+                  {calculateTotalRevenue().toFixed(0)} AED
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
@@ -106,7 +124,7 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
               <div>
                 <p className="text-sm text-purple-700 font-medium">Total Work Orders</p>
                 <p className="text-3xl font-bold text-purple-900 mt-2">
-                  {summary?.companies.reduce((sum, c) => sum + c.total_work_orders, 0) || 0}
+                  {calculateTotalWorkOrders()}
                 </p>
               </div>
               <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
@@ -145,6 +163,10 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
               <tbody>
                 {companies.map((company) => {
                   const companyData = summary?.companies.find(c => c.company_id === company.id);
+                  // Safely extract revenue and work orders
+                  const revenue = companyData ? parseFloat(companyData.total_revenue) || 0 : 0;
+                  const workOrders = companyData ? parseInt(companyData.total_work_orders) || 0 : 0;
+                  
                   return (
                     <tr key={company.id} className="border-b border-slate-100 hover:bg-slate-50" data-testid={`company-row-${company.id}`}>
                       <td className="py-4 px-4">
@@ -158,8 +180,8 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
                           {company.industry}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-slate-700">{companyData?.total_work_orders || 0}</td>
-                      <td className="py-4 px-4 text-slate-700">{(companyData?.total_revenue.toFixed(2) || '0.00')} AED</td>
+                      <td className="py-4 px-4 text-slate-700">{workOrders}</td>
+                      <td className="py-4 px-4 text-slate-700">{revenue.toFixed(2)} AED</td>
                       <td className="py-4 px-4">
                         <div className="flex gap-2">
                           <Button 
@@ -194,27 +216,32 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
           <Card className="p-6">
             <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Revenue by Company</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {summary.companies.map((companyData) => (
-                <div key={companyData.company_id} className="bg-slate-50 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-slate-800">{companyData.company_name}</h3>
-                      <p className="text-sm text-slate-600">{companyData.industry}</p>
+              {summary.companies.map((companyData) => {
+                // Safely extract data
+                const revenue = parseFloat(companyData.total_revenue) || 0;
+                const workOrders = parseInt(companyData.total_work_orders) || 0;
+                const avgRevenuePerWO = workOrders > 0 ? revenue / workOrders : 0;
+                
+                return (
+                  <div key={companyData.company_id} className="bg-slate-50 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold text-slate-800">{companyData.company_name}</h3>
+                        <p className="text-sm text-slate-600">{companyData.industry}</p>
+                      </div>
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                        {revenue.toFixed(2)} AED
+                      </span>
                     </div>
-                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                      {(companyData.total_revenue?.toFixed(2) || '0.00')} AED
-                    </span>
+                    <div className="mt-3 flex justify-between items-center">
+                      <span className="text-sm text-slate-600">Work Orders: {workOrders}</span>
+                      <span className="text-sm font-medium text-slate-800">
+                        {workOrders > 0 ? `${avgRevenuePerWO.toFixed(2)} AED/WO` : 'N/A'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-3 flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Work Orders: {companyData.total_work_orders || 0}</span>
-                    <span className="text-sm font-medium text-slate-800">
-                      {companyData.total_revenue && companyData.total_work_orders 
-                        ? `${(companyData.total_revenue / companyData.total_work_orders).toFixed(2)} AED/WO` 
-                        : 'N/A'}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         )}

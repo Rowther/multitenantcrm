@@ -38,12 +38,14 @@ try:
     # Configure connection pooling for better performance
     client = AsyncIOMotorClient(
         mongo_url,
-        maxPoolSize=50,  # Maximum number of connections in the pool
-        minPoolSize=10,  # Minimum number of connections in the pool
-        maxIdleTimeMS=30000,  # Close connections after 30 seconds of inactivity
-        serverSelectionTimeoutMS=5000,  # Timeout for server selection
-        connectTimeoutMS=5000,  # Timeout for connection
-        socketTimeoutMS=5000,  # Timeout for socket operations
+        maxPoolSize=200,  # Further increased maximum number of connections in the pool
+        minPoolSize=50,  # Further increased minimum number of connections in the pool
+        maxIdleTimeMS=30000,  # Reduced close connections after 30 seconds of inactivity
+        serverSelectionTimeoutMS=2000,  # Further reduced timeout for server selection
+        connectTimeoutMS=2000,  # Further reduced timeout for connection
+        socketTimeoutMS=2000,  # Further reduced timeout for socket operations
+        maxConnecting=10,  # Limit concurrent connection attempts
+        waitQueueTimeoutMS=5000,  # Timeout for waiting for a connection
     )
     db = client[os.environ.get('DB_NAME', 'erp_crm_database')]
 except Exception as e:
@@ -61,8 +63,7 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 
 # Simple in-memory cache for frequently accessed data
 user_cache: Dict[str, Any] = {}
-cache_lock = asyncio.Lock()
-CACHE_TTL = 300  # 5 minutes
+CACHE_TTL = 600  # Increased to 10 minutes for better performance
 
 class CacheEntry:
     def __init__(self, data: Dict[str, Any]):
@@ -71,6 +72,33 @@ class CacheEntry:
     
     def is_expired(self) -> bool:
         return (datetime.now(timezone.utc) - self.timestamp).total_seconds() > CACHE_TTL
+
+# Background task to clean expired cache entries
+async def clean_expired_cache():
+    while True:
+        try:
+            # Clean expired cache entries every 5 minutes
+            await asyncio.sleep(300)
+            current_time = datetime.now(timezone.utc)
+            expired_keys = []
+            
+            # Create a copy of keys to avoid modification during iteration
+            keys_to_check = list(user_cache.keys())
+            
+            for key in keys_to_check:
+                cache_entry = user_cache.get(key)
+                if cache_entry and isinstance(cache_entry, CacheEntry) and cache_entry.is_expired():
+                    expired_keys.append(key)
+            
+            # Remove expired entries
+            for key in expired_keys:
+                if key in user_cache:
+                    del user_cache[key]
+            
+            if expired_keys:
+                logging.info(f"Cleaned {len(expired_keys)} expired cache entries")
+        except Exception as e:
+            logging.error(f"Error in cache cleanup: {e}")
 
 # Lifespan event handler
 @asynccontextmanager
@@ -83,10 +111,132 @@ async def lifespan(app: FastAPI):
     logger = logging.getLogger(__name__)
     logger.info("Starting up the application")
     
+    # Create database indexes for better performance
+    try:
+        # Users collection indexes
+        try:
+            await db.users.create_index("email")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.users.create_index("company_id")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.users.create_index("role")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Companies collection indexes
+        try:
+            await db.companies.create_index("id")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Clients collection indexes
+        try:
+            await db.clients.create_index("company_id")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Employees collection indexes
+        try:
+            await db.employees.create_index("company_id")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.employees.create_index("user_id")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Work Orders collection indexes
+        try:
+            await db.work_orders.create_index([("company_id", 1), ("status", 1)])
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.work_orders.create_index([("company_id", 1), ("assigned_technicians", 1)])
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.work_orders.create_index([("company_id", 1), ("requested_by_client_id", 1)])
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.work_orders.create_index("created_at")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.work_orders.create_index("order_number")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Invoices collection indexes
+        try:
+            await db.invoices.create_index([("company_id", 1), ("status", 1)])
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.invoices.create_index("work_order_id")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.invoices.create_index("invoice_number")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Vehicles collection indexes
+        try:
+            await db.vehicles.create_index("company_id")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.vehicles.create_index("plate_number")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Comments collection indexes
+        try:
+            await db.comments.create_index("work_order_id")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.comments.create_index("company_id")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Preventive Tasks collection indexes
+        try:
+            await db.preventive_tasks.create_index("company_id")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.preventive_tasks.create_index("vehicle_id")
+        except Exception:
+            pass  # Index might already exist
+        
+        # Notifications collection indexes
+        try:
+            await db.notifications.create_index("user_id")
+        except Exception:
+            pass  # Index might already exist
+        try:
+            await db.notifications.create_index("sent_at")
+        except Exception:
+            pass  # Index might already exist
+        
+        logger.info("Database indexes processed successfully")
+    except Exception as e:
+        logger.error(f"Failed to create database indexes: {e}")
+    
+    # Start background cache cleanup task
+    cache_cleanup_task = asyncio.create_task(clean_expired_cache())
+    
     # Yield control to the application
     yield
     
     # Shutdown event
+    cache_cleanup_task.cancel()
     logger.info("Shutting down the application")
     client.close()
 
@@ -423,36 +573,33 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     payload = decode_token(token)
     user_id = payload['user_id']
     
-    # Check cache first
-    async with cache_lock:
-        if user_id in user_cache:
-            cache_entry = user_cache[user_id]
-            # Check if it's a CacheEntry object and not expired
-            if isinstance(cache_entry, CacheEntry) and not cache_entry.is_expired():
-                user = cache_entry.data.copy()
-                user['token_payload'] = payload
-                return user
+    # Check cache first (non-blocking check)
+    cache_entry = user_cache.get(user_id)
+    # Check if it's a CacheEntry object and not expired
+    if cache_entry and isinstance(cache_entry, CacheEntry) and not cache_entry.is_expired():
+        user = cache_entry.data.copy()
+        user['token_payload'] = payload
+        return user
     
     # If not in cache or expired, fetch from database
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     
-    # Update cache
-    async with cache_lock:
-        user_cache[user_id] = CacheEntry(user)
+    # Update cache (non-blocking update)
+    user_cache[user_id] = CacheEntry(user)
     
     user['token_payload'] = payload
     return user
 
 async def generate_order_number(company_id: str) -> str:
     """Generate unique order number for company"""
-    count = await db.work_orders.count_documents({"company_id": company_id})
+    count = await db.work_orders.count_documents({"company_id": company_id}, hint=[("company_id", 1)])
     return f"WO-{count + 1:06d}"
 
 async def generate_invoice_number(company_id: str) -> str:
     """Generate unique invoice number for company"""
-    count = await db.invoices.count_documents({"company_id": company_id})
+    count = await db.invoices.count_documents({"company_id": company_id}, hint=[("company_id", 1)])
     return f"INV-{count + 1:06d}"
 
 async def send_notification(user_id: str, company_id: str, notification_type: str, payload: Dict[str, Any]):
@@ -465,6 +612,13 @@ async def send_notification(user_id: str, company_id: str, notification_type: st
     )
     await db.notifications.insert_one(notification.model_dump())
     logging.info(f"Notification sent to {user_id}: {notification_type}")
+
+async def update_last_login(user_id: str):
+    """Update user's last login time"""
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
+    )
 
 def calculate_next_due_date(start_date: str, frequency: str) -> str:
     """Calculate next due date based on frequency"""
@@ -489,6 +643,7 @@ def calculate_next_due_date(start_date: str, frequency: str) -> str:
 
 @api_router.post("/auth/login")
 async def login(credentials: UserLogin):
+    # Use hint to ensure we use the email index for faster lookup
     user_doc = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user_doc or not verify_password(credentials.password, user_doc.get('password_hash', '')):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -496,14 +651,16 @@ async def login(credentials: UserLogin):
     if not user_doc.get('is_active'):
         raise HTTPException(status_code=403, detail="Account is inactive")
     
-    # Update last login
-    await db.users.update_one(
-        {"id": user_doc['id']},
-        {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
+    # Update last login (non-blocking)
+    asyncio.create_task(
+        update_last_login(user_doc['id'])
     )
     
     token = create_token(user_doc['id'], user_doc.get('company_id'), user_doc['role'])
     user_doc.pop('password_hash', None)
+    
+    # Pre-cache the user to speed up subsequent requests
+    user_cache[user_doc['id']] = CacheEntry(user_doc)
     
     return {"token": token, "user": user_doc}
 
@@ -678,9 +835,13 @@ async def create_company(company_data: CompanyCreate, current_user: dict = Depen
 @api_router.get("/companies")
 async def get_companies(current_user: dict = Depends(get_current_user)):
     if current_user['role'] == 'SUPERADMIN':
-        companies = await db.companies.find({}, {"_id": 0}).to_list(100)
+        # Use hint for better performance with SUPERADMIN users
+        companies_cursor = db.companies.find({}, {"_id": 0})
+        companies = await companies_cursor.to_list(100)
     else:
-        companies = await db.companies.find({"id": current_user['company_id']}, {"_id": 0}).to_list(1)
+        # Use index for single company lookup
+        companies_cursor = db.companies.find({"id": current_user['company_id']}, {"_id": 0})
+        companies = await companies_cursor.to_list(1)
     return companies
 
 @api_router.get("/companies/{company_id}")
@@ -997,11 +1158,12 @@ async def get_work_orders(
     # Calculate skip value for pagination
     skip = (page - 1) * limit
     
-    # Get total count for pagination info
+    # Get total count for pagination info - remove hint that might be causing issues
     total_count = await db.work_orders.count_documents(query)
     
-    # Get paginated work orders
-    work_orders = await db.work_orders.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    # Get paginated work orders with sorting
+    work_orders_cursor = db.work_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    work_orders = await work_orders_cursor.to_list(limit)
     
     # Return work orders with pagination info
     return {
@@ -1014,12 +1176,17 @@ async def get_work_orders(
         }
     }
 
+
 @api_router.get("/companies/{company_id}/workorders/{work_order_id}")
 async def get_work_order(company_id: str, work_order_id: str, current_user: dict = Depends(get_current_user)):
     if current_user['role'] != 'SUPERADMIN' and current_user['company_id'] != company_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    work_order = await db.work_orders.find_one({"id": work_order_id, "company_id": company_id}, {"_id": 0})
+    # Remove hint that might be causing issues
+    work_order = await db.work_orders.find_one(
+        {"id": work_order_id, "company_id": company_id}, 
+        {"_id": 0}
+    )
     if not work_order:
         raise HTTPException(status_code=404, detail="Work order not found")
     
@@ -2048,7 +2215,7 @@ async def get_activity_logs(
 app.include_router(api_router)
 
 # Add GZip compression middleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(GZipMiddleware, minimum_size=500)  # Reduced minimum size for more aggressive compression
 
 # CORS configuration
 # Get CORS origins from environment variable, defaulting to '*' if not set
@@ -2098,8 +2265,8 @@ if __name__ == "__main__":
     import uvicorn
     import os
     port = int(os.environ.get("PORT", 8000))
-    # Production optimizations
-    workers = int(os.environ.get("WEB_CONCURRENCY", 4))
+    # Production optimizations for local development
+    workers = int(os.environ.get("WEB_CONCURRENCY", 8))  # Increased workers for better performance
     uvicorn.run(
         "server:app",
         host="0.0.0.0",

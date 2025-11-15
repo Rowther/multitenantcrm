@@ -8,7 +8,15 @@ echo ====================================================
 echo    Enterprise Hub - Multi-Tenant ERP/CRM Platform
 echo ====================================================
 echo.
-
+echo ⚡ PERFORMANCE OPTIMIZED VERSION
+echo  - 8 Workers for backend
+echo  - Enhanced MongoDB connection pooling
+echo  - Extended cache TTL (10 minutes)
+echo  - Aggressive GZip compression
+echo  - Hot reload disabled for frontend
+echo  - Database indexes for all collections
+echo  - Background cache cleanup
+echo.
 echo Checking prerequisites...
 
 REM Check if MongoDB is installed and running
@@ -35,7 +43,7 @@ cd /d "%~dp0"
 
 REM Start backend server in a new window
 echo [1/3] Starting backend server...
-start "Backend Server - FastAPI" /D "%cd%\backend" cmd /k "uvicorn server:app --host 0.0.0.0 --port 8000 --reload"
+start "Backend Server - FastAPI" /D "%cd%\backend" cmd /k "uvicorn server:app --host 0.0.0.0 --port 8000 --workers 8 --timeout-keep-alive 5 --limit-concurrency 100 --limit-max-requests 1000"
 
 REM Wait a moment for backend to start
 timeout /t 10 /nobreak >nul

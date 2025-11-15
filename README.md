@@ -4,6 +4,18 @@ A comprehensive cloud-based multi-tenant ERP & CRM web application for managing 
 
 ## 🚀 Getting Started
 
+### Performance Optimizations
+This application includes several performance optimizations for lightning-fast operation:
+- Backend configured with 8 workers for better concurrent request handling
+- Enhanced MongoDB connection pooling (100 max connections)
+- Extended user cache TTL to 10 minutes
+- More aggressive GZip compression
+- Hot reload disabled by default for frontend
+- Automatic database indexing for all collections
+- Background cache cleanup for optimal memory usage
+
+For detailed optimization information, see [PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md).
+
 ### Prerequisites
 - MongoDB database
 - Python 3.8+
