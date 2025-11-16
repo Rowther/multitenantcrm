@@ -333,6 +333,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           companyId={user.company_id}
           isSuperAdmin={false}
           clients={clients}
+          companies={[]}
         />
       )}
       {showEditUserModal && selectedUser && (

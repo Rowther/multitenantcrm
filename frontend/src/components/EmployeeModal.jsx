@@ -33,11 +33,10 @@ const EmployeeModal = ({ companyId, employee, onClose, onSuccess }) => {
 
   const fetchUsers = async () => {
     try {
-      // This would need to be implemented in the backend
-      // For now, we'll just show a message
-      toast.info('User selection would be implemented in a full version');
+      const response = await axios.get(`${API}/users`);
+      setUsers(response.data);
     } catch (error) {
-      // console.error('Failed to fetch users:', error);
+      toast.error('Failed to fetch users: ' + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -81,14 +80,21 @@ const EmployeeModal = ({ companyId, employee, onClose, onSuccess }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="user_id">User *</Label>
-            <Input
-              id="user_id"
-              value={formData.user_id}
-              onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-              placeholder="User ID"
-              required
-            />
-            <p className="text-xs text-slate-500">In a full implementation, this would be a dropdown of existing users</p>
+            <Select value={formData.user_id} onValueChange={(value) => setFormData({ ...formData, user_id: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a user" />
+              </SelectTrigger>
+              <SelectContent>
+                {users
+                  .filter(user => user.company_id === companyId)
+                  .map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.display_name} ({user.email})
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-500">Select a user to associate with this employee</p>
           </div>
 
           <div className="space-y-2">
