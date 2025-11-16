@@ -2320,63 +2320,22 @@ else:
     # Split by comma and strip whitespace from each origin
     cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
 
-# Add custom CORS middleware to ensure proper headers
-@app.middleware("http")
-async def add_cors_headers(request, call_next):
-    origin = request.headers.get('origin')
-    
-    # Handle preflight OPTIONS requests
-    if request.method == "OPTIONS":
-        response = Response(status_code=200)
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        
-        # Always allow common localhost origins
-        if origin and ('localhost' in origin or '127.0.0.1' in origin):
-            response.headers['Access-Control-Allow-Origin'] = origin
-        # Also allow production origins
-        elif origin and any(allowed_origin in origin for allowed_origin in cors_origins if allowed_origin != "*"):
-            response.headers['Access-Control-Allow-Origin'] = origin
-        # Allow all origins if configured
-        elif "*" in cors_origins:
-            response.headers['Access-Control-Allow-Origin'] = '*'
-        
-        return response
-    
-    # For non-OPTIONS requests, proceed normally
-    response = await call_next(request)
-    
-    # Set CORS headers for actual requests
-    # Always allow common localhost origins
-    if origin and ('localhost' in origin or '127.0.0.1' in origin):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-    # Also allow production origins
-    elif origin and any(allowed_origin in origin for allowed_origin in cors_origins if allowed_origin != "*"):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-    # Allow all origins if configured
-    elif "*" in cors_origins:
-        response.headers['Access-Control-Allow-Origin'] = '*'
-    
-    return response
-
 # Add GZip compression middleware
 app.add_middleware(GZipMiddleware, minimum_size=500)  # Reduced minimum size for more aggressive compression
 
 # CORS configuration
 # Get CORS origins from environment variable
-raw_cors_origins = os.environ.get('CORS_ORIGINS', 'https://multitenantcrm.vercel.app,http://localhost:3000,http://localhost:5173')
+raw_cors_origins = os.environ.get('CORS_ORIGINS', 'https://multitenantcrm.vercel.app,https://multitenantcrm-backend.onrender.com,http://localhost:3000,http://localhost:5173')
 cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
 
-# Add CORSMiddleware
+# Add CORSMiddleware with enhanced configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_origin_regex="https://.*\.vercel\.app",  # Allow all Vercel deployments
 )
 
 if __name__ == "__main__":
