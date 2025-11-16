@@ -2312,18 +2312,6 @@ app.include_router(api_router)
 app.add_middleware(GZipMiddleware, minimum_size=500)  # Reduced minimum size for more aggressive compression
 
 # CORS configuration
-# Get CORS origins from environment variable, defaulting to '*' if not set
-raw_cors_origins = os.environ.get('CORS_ORIGINS', '*')
-if raw_cors_origins == '*':
-    cors_origins = ["*"]
-else:
-    # Split by comma and strip whitespace from each origin
-    cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
-
-# Add GZip compression middleware
-app.add_middleware(GZipMiddleware, minimum_size=500)  # Reduced minimum size for more aggressive compression
-
-# CORS configuration
 # Get CORS origins from environment variable
 raw_cors_origins = os.environ.get('CORS_ORIGINS', 'https://multitenantcrm.vercel.app,https://multitenantcrm-backend.onrender.com,http://localhost:3000,http://localhost:5173')
 cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
