@@ -1040,9 +1040,141 @@ async def create_work_order(company_id: str, wo_data: WorkOrderCreate, current_u
         **wo_data.model_dump()
     )
     
-    await db.work_orders.insert_one(work_order.model_dump())
+    result = await db.work_orders.insert_one(work_order.model_dump())
+    
+    # Automatically create an invoice if quoted_price is set
+    if work_order.quoted_price and work_order.quoted_price > 0:
+        try:
+            # Create invoice items based on quoted price
+            items = [
+                {"description": "Work Order Services", "amount": work_order.quoted_price}
+            ]
+            
+            # Calculate total with tax (assuming 0% tax for now)
+            total_with_tax = work_order.quoted_price
+            
+            invoice_number = await generate_invoice_number(company_id)
+            
+            invoice = Invoice(
+                company_id=company_id,
+                work_order_id=work_order.id,
+                invoice_number=invoice_number,
+                items=items,
+                total_amount=total_with_tax,
+                tax_amount=0,
+                status="ISSUED",
+                issued_date=datetime.now(timezone.utc).isoformat(),
+                due_date=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+            )
+            
+            await db.invoices.insert_one(invoice.model_dump())
+        except Exception as e:
+            # Log the error but don't fail the work order creation
+            logging.error(f"Failed to create automatic invoice for work order {work_order.id}: {str(e)}")
+    
+    return work_order
+
+@api_router.put("/companies/{company_id}/workorders/{work_order_id}")
+async def update_work_order(
+    company_id: str,
+    work_order_id: str,
+    update_data: WorkOrderUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user['role'] != 'SUPERADMIN' and current_user['company_id'] != company_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    work_order = await db.work_orders.find_one({"id": work_order_id, "company_id": company_id})
+    if not work_order:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    
+    # Check company for MSAM Technical Solutions asset code requirement
+    update_dict = update_data.model_dump(exclude_unset=True)
+    if update_dict:
+        # Check if we're trying to set asset_code to empty/None for MSAM Technical Solutions
+        if 'asset_code' in update_dict and (update_dict['asset_code'] is None or update_dict['asset_code'] == ''):
+            company = await db.companies.find_one({"id": company_id})
+            if company and company['industry'] == 'technical_solutions':
+                raise HTTPException(status_code=400, detail="Asset code is required for MSAM Technical Solutions work orders")
+    
+    # Prepare update
+    update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+    update_dict['updated_at'] = datetime.now(timezone.utc).isoformat()
+    
+    if update_dict:
+        await db.work_orders.update_one(
+            {"id": work_order_id},
+            {"$set": update_dict}
+        )
+        
+        # Send notification on status change
+        if 'status' in update_dict:
+            await send_notification(
+                work_order['created_by'],
+                company_id,
+                "work_order_status_changed",
+                {"work_order_id": work_order_id, "new_status": update_dict['status']}
+            )
+        
+        # Automatically create or update invoice if quoted_price is changed
+        if 'quoted_price' in update_dict and update_dict['quoted_price'] is not None:
+            try:
+                # Check if an invoice already exists for this work order
+                existing_invoice = await db.invoices.find_one({"work_order_id": work_order_id, "company_id": company_id})
+                
+                if existing_invoice:
+                    # Update existing invoice
+                    # Create invoice items based on new quoted price
+                    items = [
+                        {"description": "Work Order Services", "amount": update_dict['quoted_price']}
+                    ]
+                    
+                    # Calculate total with tax (assuming 0% tax for now)
+                    total_with_tax = update_dict['quoted_price']
+                    
+                    await db.invoices.update_one(
+                        {"id": existing_invoice['id']},
+                        {"$set": {
+                            "items": items,
+                            "total_amount": total_with_tax,
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+                else:
+                    # Create new invoice if quoted_price > 0
+                    if update_dict['quoted_price'] > 0:
+                        # Create invoice items based on quoted price
+                        items = [
+                            {"description": "Work Order Services", "amount": update_dict['quoted_price']}
+                        ]
+                        
+                        # Calculate total with tax (assuming 0% tax for now)
+                        total_with_tax = update_dict['quoted_price']
+                        
+                        invoice_number = await generate_invoice_number(company_id)
+                        
+                        invoice = Invoice(
+                            company_id=company_id,
+                            work_order_id=work_order_id,
+                            invoice_number=invoice_number,
+                            items=items,
+                            total_amount=total_with_tax,
+                            tax_amount=0,
+                            status="ISSUED",
+                            issued_date=datetime.now(timezone.utc).isoformat(),
+                            due_date=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+                        )
+                        
+                        await db.invoices.insert_one(invoice.model_dump())
+            except Exception as e:
+                # Log the error but don't fail the work order update
+                logging.error(f"Failed to create/update automatic invoice for work order {work_order_id}: {str(e)}")
+    
+    updated_wo = await db.work_orders.find_one({"id": work_order_id}, {"_id": 0})
+    return updated_wo
 
 # =======================
+
 # File Upload
 # =======================
 
