@@ -1075,7 +1075,7 @@ async def create_work_order(company_id: str, wo_data: WorkOrderCreate, current_u
     return work_order
 
 @api_router.put("/companies/{company_id}/workorders/{work_order_id}")
-async def update_work_order(
+async def update_work_order(  # pyright: ignore[reportRedeclaration]
     company_id: str,
     work_order_id: str,
     update_data: WorkOrderUpdate,
@@ -1268,7 +1268,11 @@ async def get_work_orders(
         if 'requested_by_client_id' in query:
             # A specific client filter was provided
             # Check if it matches the current client
-            if query['requested_by_client_id'] == current_user.get('client_id'):
+            client_id_from_token = current_user.get('client_id')
+            if not client_id_from_token:
+                # This shouldn't happen for CLIENT users, but just in case
+                query['requested_by_client_id'] = 'IMPOSSIBLE_VALUE_TO_RETURN_EMPTY_RESULTS'
+            elif query['requested_by_client_id'] == client_id_from_token:
                 # Client is requesting their own work orders, which is allowed
                 # Keep the filter as is (no need to change it)
                 pass
@@ -1278,9 +1282,9 @@ async def get_work_orders(
                 query['requested_by_client_id'] = 'IMPOSSIBLE_VALUE_TO_RETURN_EMPTY_RESULTS'
         else:
             # No specific client filter, apply standard role-based filtering
-            client_id = current_user.get('client_id')
-            if client_id:
-                query['requested_by_client_id'] = client_id
+            client_id_from_token = current_user.get('client_id')
+            if client_id_from_token:
+                query['requested_by_client_id'] = client_id_from_token
             else:
                 # This shouldn't happen for CLIENT users, but just in case
                 query['requested_by_client_id'] = 'IMPOSSIBLE_VALUE_TO_RETURN_EMPTY_RESULTS'
@@ -1328,13 +1332,15 @@ async def get_work_order(company_id: str, work_order_id: str, current_user: dict
     if not work_order:
         raise HTTPException(status_code=404, detail="Work order not found")
     
-    # Check visibility
+    # Check visibility based on user role
     if current_user['role'] == 'EMPLOYEE':
-        if current_user['id'] not in work_order['assigned_technicians'] and work_order['status'] != 'APPROVED':
+        # Employees can only see work orders assigned to them or approved work orders
+        if current_user['id'] not in work_order.get('assigned_technicians', []) and work_order.get('status') != 'APPROVED':
             raise HTTPException(status_code=403, detail="Access denied")
     elif current_user['role'] == 'CLIENT':
-        client_id = current_user.get('client_id')
-        if not client_id or work_order['requested_by_client_id'] != client_id:
+        # Clients can only see their own work orders
+        client_id_from_token = current_user.get('client_id')
+        if not client_id_from_token or work_order.get('requested_by_client_id') != client_id_from_token:
             raise HTTPException(status_code=403, detail="Access denied")
     
     return work_order
