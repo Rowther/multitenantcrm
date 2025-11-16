@@ -402,6 +402,7 @@ class WorkOrderCreate(BaseModel):
     preventive_flag: bool = False
     scheduled_date: Optional[str] = None
     products: List[Dict[str, Any]] = []  # Added products field
+    attachments: List[str] = []  # Added attachments field
     # SLA and deadline fields
     sla_hours: Optional[int] = None  # SLA in hours
     promise_date: Optional[str] = None  # Promise completion date
@@ -423,6 +424,7 @@ class WorkOrderUpdate(BaseModel):
     paid_amount: Optional[float] = None
     scheduled_date: Optional[str] = None
     products: Optional[List[Dict[str, Any]]] = None  # Added products field
+    attachments: Optional[List[str]] = None  # Added attachments field
     # SLA and deadline fields
     sla_hours: Optional[int] = None  # SLA in hours
     promise_date: Optional[str] = None  # Promise completion date
