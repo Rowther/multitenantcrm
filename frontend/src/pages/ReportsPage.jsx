@@ -6,6 +6,11 @@ import DashboardLayout from '../components/DashboardLayout';
 import { Card } from '../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Button } from '../components/ui/button';
+import { Download, Filter, Calendar } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const ReportsPage = ({ user, onLogout }) => {
   const [reportData, setReportData] = useState(null);
@@ -13,11 +18,16 @@ const ReportsPage = ({ user, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('month');
   const [activeTab, setActiveTab] = useState('summary'); // Added state for tabs
+  
+  // Timeline filter states
+  const [timelineFilter, setTimelineFilter] = useState('all'); // all, week, month, custom
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   useEffect(() => {
     fetchReportData();
     fetchDetailedData();
-  }, [timeRange]);
+  }, [timeRange, timelineFilter, customStartDate, customEndDate]);
 
   const fetchReportData = async () => {
     try {
@@ -31,7 +41,25 @@ const ReportsPage = ({ user, onLogout }) => {
 
   const fetchDetailedData = async () => {
     try {
-      const response = await axios.get(`${API}/companies/${user.company_id}/reports/profit-loss-details`);
+      // Build query parameters for date filtering
+      const params = {};
+      const now = new Date();
+      
+      if (timelineFilter === 'week') {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        params.from_date = weekAgo.toISOString().split('T')[0];
+        params.to_date = now.toISOString().split('T')[0];
+      } else if (timelineFilter === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        params.from_date = monthAgo.toISOString().split('T')[0];
+        params.to_date = now.toISOString().split('T')[0];
+      } else if (timelineFilter === 'custom' && customStartDate && customEndDate) {
+        params.from_date = customStartDate;
+        params.to_date = customEndDate;
+      }
+      
+      const response = await axios.get(`${API}/companies/${user.company_id}/reports/profit-loss-details`, { params });
       setDetailedData(response.data.details || response.data);
     } catch (error) {
       console.error('Failed to fetch detailed report data:', error);
@@ -39,6 +67,61 @@ const ReportsPage = ({ user, onLogout }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(detailedData.map(item => ({
+      'Order Number': item.order_number,
+      'Title': item.title,
+      'Client': item.client_name,
+      'Status': item.status,
+      'Quoted Price': item.quoted_price,
+      'Total Expenses': item.total_expenses,
+      'Total Revenue': item.total_revenue,
+      'Profit/Loss': item.profit_loss
+    })));
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Work Order Reports');
+    XLSX.writeFile(wb, `work-order-reports-${user.company_id}.xlsx`);
+    
+    toast.success('Report exported to Excel successfully');
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.text('Work Order Reports', 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Company ID: ${user.company_id}`, 14, 30);
+    doc.text(`Export Date: ${new Date().toLocaleDateString()}`, 14, 40);
+    
+    // Add table
+    const tableData = detailedData.map(item => [
+      item.order_number,
+      item.title,
+      item.client_name,
+      item.status,
+      `AED ${item.quoted_price?.toFixed(2) || '0.00'}`,
+      `AED ${item.total_expenses?.toFixed(2) || '0.00'}`,
+      `AED ${item.total_revenue?.toFixed(2) || '0.00'}`,
+      `AED ${item.profit_loss?.toFixed(2) || '0.00'}`
+    ]);
+    
+    autoTable(doc, {
+      head: [['Order #', 'Title', 'Client', 'Status', 'Quoted Price', 'Expenses', 'Revenue', 'Profit/Loss']],
+      body: tableData,
+      startY: 50,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+    
+    doc.save(`work-order-reports-${user.company_id}.pdf`);
+    
+    toast.success('Report exported to PDF successfully');
   };
 
   if (loading) {
@@ -216,7 +299,58 @@ const ReportsPage = ({ user, onLogout }) => {
         ) : (
           /* Detailed Profit/Loss Tab */
           <Card className="p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Detailed Profit/Loss per Work Order</h2>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+              <h2 className="text-xl font-bold text-slate-800" style={{fontFamily: 'Space Grotesk'}}>Detailed Profit/Loss per Work Order</h2>
+              
+              {/* Export Buttons */}
+              <div className="flex gap-2 mt-4 md:mt-0">
+                <Button onClick={exportToExcel} variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export XLS
+                </Button>
+                <Button onClick={exportToPDF} variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export PDF
+                </Button>
+              </div>
+            </div>
+            
+            {/* Timeline Filter */}
+            <div className="flex flex-wrap gap-4 mb-6">
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-700">Timeline:</span>
+                <select 
+                  value={timelineFilter}
+                  onChange={(e) => setTimelineFilter(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-1 text-sm"
+                >
+                  <option value="all">All Time</option>
+                  <option value="week">Past Week</option>
+                  <option value="month">Past Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+                
+                {timelineFilter === 'custom' && (
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                    />
+                    <span className="text-sm text-slate-500">to</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>

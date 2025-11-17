@@ -5,6 +5,11 @@ import { API } from '../App';
 import DashboardLayout from '../components/DashboardLayout';
 import { Card } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Button } from '../components/ui/button';
+import { Download, Calendar } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const SuperAdminReportsPage = ({ user, onLogout }) => {
   const [reportData, setReportData] = useState([]);
@@ -15,14 +20,37 @@ const SuperAdminReportsPage = ({ user, onLogout }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'order_number', direction: 'asc' });
   const [companies, setCompanies] = useState([]); // For company filter dropdown
   const [technicians, setTechnicians] = useState([]); // For technician filter dropdown
+  
+  // Timeline filter states
+  const [timelineFilter, setTimelineFilter] = useState('all'); // all, week, month, custom
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   useEffect(() => {
     fetchReportData();
-  }, []);
+  }, [timelineFilter, customStartDate, customEndDate]);
 
   const fetchReportData = async () => {
     try {
-      const response = await axios.get(`${API}/superadmin/reports/all-workorders-profit`);
+      // Build query parameters for date filtering
+      const params = {};
+      const now = new Date();
+      
+      if (timelineFilter === 'week') {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        params.from_date = weekAgo.toISOString().split('T')[0];
+        params.to_date = now.toISOString().split('T')[0];
+      } else if (timelineFilter === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        params.from_date = monthAgo.toISOString().split('T')[0];
+        params.to_date = now.toISOString().split('T')[0];
+      } else if (timelineFilter === 'custom' && customStartDate && customEndDate) {
+        params.from_date = customStartDate;
+        params.to_date = customEndDate;
+      }
+      
+      const response = await axios.get(`${API}/superadmin/reports/all-workorders-profit`, { params });
       const data = response.data.details || response.data || [];
       setReportData(data);
       
@@ -103,6 +131,62 @@ const SuperAdminReportsPage = ({ user, onLogout }) => {
     return classes[status] || 'bg-slate-100 text-slate-700';
   };
 
+  // Export to Excel function
+  const exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(sortedData.map(item => ({
+      'Order Number': item.order_number,
+      'Title': item.title,
+      'Company': item.company_name,
+      'Status': item.status,
+      'Quoted Price': item.quoted_price,
+      'Total Expenses': item.total_expenses,
+      'Total Revenue': item.total_revenue,
+      'Profit/Loss': item.profit_loss
+    })));
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'SuperAdmin Reports');
+    XLSX.writeFile(wb, 'superadmin-work-order-reports.xlsx');
+    
+    toast.success('Report exported to Excel successfully');
+  };
+
+  // Export to PDF function
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.text('SuperAdmin Work Order Reports', 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Export Date: ${new Date().toLocaleDateString()}`, 14, 30);
+    
+    // Add table
+    const tableData = sortedData.map(item => [
+      item.order_number,
+      item.title,
+      item.company_name,
+      item.status,
+      `AED ${item.quoted_price?.toFixed(2) || '0.00'}`,
+      `AED ${item.total_expenses?.toFixed(2) || '0.00'}`,
+      `AED ${item.total_revenue?.toFixed(2) || '0.00'}`,
+      `AED ${item.profit_loss?.toFixed(2) || '0.00'}`
+    ]);
+    
+    autoTable(doc, {
+      head: [['Order #', 'Title', 'Company', 'Status', 'Quoted Price', 'Expenses', 'Revenue', 'Profit/Loss']],
+      body: tableData,
+      startY: 40,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+    
+    doc.save('superadmin-work-order-reports.pdf');
+    
+    toast.success('Report exported to PDF successfully');
+  };
+
   if (loading) {
     return (
       <DashboardLayout user={user} onLogout={onLogout}>
@@ -114,9 +198,22 @@ const SuperAdminReportsPage = ({ user, onLogout }) => {
   return (
     <DashboardLayout user={user} onLogout={onLogout}>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-4xl font-bold text-slate-800" style={{fontFamily: 'Space Grotesk'}}>SuperAdmin Reports</h1>
-          <p className="text-slate-600 mt-2">View all work orders and their profit/loss across all companies</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-bold text-slate-800" style={{fontFamily: 'Space Grotesk'}}>SuperAdmin Reports</h1>
+            <p className="text-slate-600 mt-2">View all work orders and their profit/loss across all companies</p>
+          </div>
+          {/* Export Buttons */}
+          <div className="flex gap-2">
+            <Button onClick={exportToExcel} variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Export XLS
+            </Button>
+            <Button onClick={exportToPDF} variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Export PDF
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -251,6 +348,40 @@ const SuperAdminReportsPage = ({ user, onLogout }) => {
               </select>
             </div>
           )}
+          
+          {/* Timeline Filter */}
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-4 h-4 text-slate-500" />
+            <span className="text-sm font-medium text-slate-700">Timeline:</span>
+            <select 
+              value={timelineFilter}
+              onChange={(e) => setTimelineFilter(e.target.value)}
+              className="border border-slate-300 rounded-lg px-3 py-1 text-sm"
+            >
+              <option value="all">All Time</option>
+              <option value="week">Past Week</option>
+              <option value="month">Past Month</option>
+              <option value="custom">Custom Range</option>
+            </select>
+            
+            {timelineFilter === 'custom' && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                />
+                <span className="text-sm text-slate-500">to</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Reports Table */}

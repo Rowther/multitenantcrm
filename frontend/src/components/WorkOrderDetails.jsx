@@ -410,6 +410,55 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
         />
       )}
 
+      {/* Product Details Section */}
+      {workOrder.products && workOrder.products.length > 0 && (
+        <Card className="p-6">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Product Details</h3>
+          <div className="space-y-4">
+            {workOrder.products.map((product, index) => (
+              <div key={index} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-medium text-slate-800">{product.name || `Product #${index + 1}`}</h4>
+                  {product.category && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                      {product.category}
+                    </span>
+                  )}
+                </div>
+                
+                {product.description && (
+                  <p className="text-sm text-slate-600 mb-2">{product.description}</p>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Quantity</p>
+                    <p className="font-medium">{product.quantity || 1}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Price (AED)</p>
+                    <p className="font-medium">{product.price ? product.price.toFixed(2) : '0.00'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Total</p>
+                    <p className="font-medium">
+                      AED {((product.quantity || 1) * (product.price || 0)).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            <div className="pt-4 border-t border-slate-200">
+              <div className="flex justify-between">
+                <span className="font-medium">Total Quoted Price:</span>
+                <span className="font-bold text-lg">AED {workOrder.quoted_price ? workOrder.quoted_price.toFixed(2) : '0.00'}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Comments Section - Clients can view but not add comments */}
       <CommentsSection 
         workOrderId={workOrderId} 

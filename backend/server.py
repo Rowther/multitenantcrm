@@ -1959,6 +1959,10 @@ async def get_overview_report(company_id: str, current_user: dict = Depends(get_
         }
     }
 
+
+
+
+
 @api_router.get("/companies/{company_id}/reports/workorder-trends")
 async def get_workorder_trends(
     company_id: str,
@@ -1994,18 +1998,37 @@ async def get_workorder_trends(
     return {"trends": trends, "group_by": group_by}
 
 @api_router.get("/companies/{company_id}/reports/profit-loss-details")
-async def get_profit_loss_details(company_id: str, current_user: dict = Depends(get_current_user)):
+async def get_profit_loss_details(
+    company_id: str, 
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
     if current_user['role'] != 'SUPERADMIN' and current_user['company_id'] != company_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Get all work orders for the company
-    work_orders = await db.work_orders.find({"company_id": company_id}, {"_id": 0}).to_list(10000)
+    # Build query with date filters
+    query = {"company_id": company_id}
+    invoice_query = {"company_id": company_id}
+    expense_query = {"company_id": company_id}
     
-    # Get all invoices for the company
-    invoices = await db.invoices.find({"company_id": company_id}, {"_id": 0}).to_list(10000)
+    if from_date:
+        query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
+        invoice_query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
+        expense_query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
+    if to_date:
+        query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
+        invoice_query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
+        expense_query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
     
-    # Get all expenses for the company
-    expenses = await db.expenses.find({"company_id": company_id}, {"_id": 0}).to_list(10000)
+    # Get all work orders for the company with date filters
+    work_orders = await db.work_orders.find(query, {"_id": 0}).to_list(10000)
+    
+    # Get all invoices for the company with date filters
+    invoices = await db.invoices.find(invoice_query, {"_id": 0}).to_list(10000)
+    
+    # Get all expenses for the company with date filters
+    expenses = await db.expenses.find(expense_query, {"_id": 0}).to_list(10000)
     
     # Create a mapping of work order ID to expenses
     work_order_expenses = {}
@@ -2060,6 +2083,8 @@ async def get_profit_loss_details(company_id: str, current_user: dict = Depends(
     
     return {"details": details}
 
+
+
 @api_router.get("/superadmin/reports/companies-summary")
 async def get_companies_summary(current_user: dict = Depends(get_current_user)):
     if current_user['role'] != 'SUPERADMIN':
@@ -2087,21 +2112,39 @@ async def get_companies_summary(current_user: dict = Depends(get_current_user)):
 
 
 @api_router.get("/superadmin/reports/all-workorders-profit")
-async def get_all_workorders_profit(current_user: dict = Depends(get_current_user)):
+async def get_all_workorders_profit(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
     if current_user['role'] != 'SUPERADMIN':
         raise HTTPException(status_code=403, detail="Only SuperAdmin can access this report")
+    
+    # Build query with date filters
+    query = {}
+    invoice_query = {}
+    expense_query = {}
+    
+    if from_date:
+        query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
+        invoice_query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
+        expense_query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
+    if to_date:
+        query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
+        invoice_query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
+        expense_query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
     
     # Get all companies
     companies = await db.companies.find({}, {"_id": 0}).to_list(100)
     
-    # Get all work orders across all companies
-    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(10000)
+    # Get all work orders across all companies with date filters
+    work_orders = await db.work_orders.find(query, {"_id": 0}).to_list(10000)
     
-    # Get all invoices across all companies
-    invoices = await db.invoices.find({}, {"_id": 0}).to_list(10000)
+    # Get all invoices across all companies with date filters
+    invoices = await db.invoices.find(invoice_query, {"_id": 0}).to_list(10000)
     
-    # Get all expenses across all companies
-    expenses = await db.expenses.find({}, {"_id": 0}).to_list(10000)
+    # Get all expenses across all companies with date filters
+    expenses = await db.expenses.find(expense_query, {"_id": 0}).to_list(10000)
     
     # Create mappings
     work_order_expenses = {}
@@ -2174,6 +2217,8 @@ async def get_all_workorders_profit(current_user: dict = Depends(get_current_use
         })
     
     return {"details": details}
+
+
 
 # =======================
 # Activity Logs Endpoint
