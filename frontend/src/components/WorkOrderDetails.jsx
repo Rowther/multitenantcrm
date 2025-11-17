@@ -59,9 +59,43 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
     return daysDiff <= 2 && daysDiff >= 0;
   };
 
-  // Check if user can perform edit actions (only SUPERADMIN and ADMIN)
+  // Check if user can perform edit actions (SUPERADMIN, ADMIN, and EMPLOYEE for status updates)
   const canEdit = () => {
+    return user.role === 'SUPERADMIN' || user.role === 'ADMIN' || user.role === 'EMPLOYEE';
+  };
+  
+  // Check if user can update status (employees can only update status on assigned work orders)
+  const canUpdateStatus = () => {
+    if (user.role === 'SUPERADMIN' || user.role === 'ADMIN') {
+      return true;
+    }
+    if (user.role === 'EMPLOYEE') {
+      // Check if employee is assigned to this work order
+      return workOrder && workOrder.assigned_technicians && workOrder.assigned_technicians.includes(user.id);
+    }
+    return false;
+  };
+  
+  // Check if user can perform full edit actions (not just status updates)
+  const canFullEdit = () => {
     return user.role === 'SUPERADMIN' || user.role === 'ADMIN';
+  };
+  
+  // Check if user can see the edit button
+  const canEditWorkOrder = () => {
+    return user.role === 'SUPERADMIN' || user.role === 'ADMIN';
+  };
+  
+  // Check if user can update work order status
+  const canUpdateWorkOrderStatus = () => {
+    if (user.role === 'SUPERADMIN' || user.role === 'ADMIN') {
+      return true;
+    }
+    if (user.role === 'EMPLOYEE') {
+      // Check if employee is assigned to this work order
+      return workOrder && workOrder.assigned_technicians && workOrder.assigned_technicians.includes(user.id);
+    }
+    return false;
   };
 
   useEffect(() => {
@@ -166,8 +200,8 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
         <Button variant="outline" onClick={onBack}>
           ← Back to Work Orders
         </Button>
-        {/* Only show edit button for users with edit permissions */}
-        {canEdit() && (
+        {/* Only show edit button for users with full edit permissions */}
+        {canEditWorkOrder() && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onEdit(workOrder)}>
               <Edit className="w-4 h-4 mr-2" /> Edit
@@ -351,8 +385,8 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
         </Card>
       )}
 
-      {/* Status Updater - Only for users with edit permissions */}
-      {canEdit() && (
+      {/* Status Updater - For users with edit permissions or assigned employees */}
+      {canUpdateWorkOrderStatus() && (
         <StatusUpdater 
           workOrderId={workOrderId} 
           companyId={companyId} 
@@ -362,13 +396,13 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
         />
       )}
 
-      {/* Expense Tracker - Only for users with edit permissions */}
-      {canEdit() && (
+      {/* Expense Tracker - Only for users with full edit permissions */}
+      {canFullEdit() && (
         <ExpenseTracker workOrderId={workOrderId} companyId={companyId} />
       )}
 
-      {/* Invoice Generator - Only for users with edit permissions */}
-      {canEdit() && (
+      {/* Invoice Generator - Only for users with full edit permissions */}
+      {canFullEdit() && (
         <InvoiceGenerator 
           workOrderId={workOrderId} 
           companyId={companyId} 

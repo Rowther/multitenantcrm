@@ -1352,12 +1352,33 @@ async def update_work_order(
     update_data: WorkOrderUpdate,
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user['role'] != 'SUPERADMIN' and current_user['company_id'] != company_id:
+    # Allow SUPERADMIN, ADMIN, and EMPLOYEE roles
+    # SUPERADMIN can access any company
+    # ADMIN and EMPLOYEE can only access their own company
+    if current_user['role'] == 'SUPERADMIN':
+        # SUPERADMIN can access any company
+        pass
+    elif current_user['role'] in ['ADMIN', 'EMPLOYEE'] and current_user['company_id'] == company_id:
+        # ADMIN and EMPLOYEE can access their own company
+        pass
+    else:
         raise HTTPException(status_code=403, detail="Access denied")
     
     work_order = await db.work_orders.find_one({"id": work_order_id, "company_id": company_id})
     if not work_order:
         raise HTTPException(status_code=404, detail="Work order not found")
+    
+    # Additional check for EMPLOYEE role - they can only update work orders assigned to them
+    if current_user['role'] == 'EMPLOYEE':
+        # If updating status, check if employee is assigned to this work order
+        update_dict = update_data.model_dump(exclude_unset=True)
+        if 'status' in update_dict and update_dict['status'] is not None:
+            # Allow employees to update status on work orders assigned to them
+            if current_user['id'] not in work_order.get('assigned_technicians', []):
+                raise HTTPException(status_code=403, detail="Employees can only update status on work orders assigned to them")
+        else:
+            # For other updates, employees should not be allowed
+            raise HTTPException(status_code=403, detail="Employees can only update status on work orders assigned to them")
     
     # Check company for MSAM Technical Solutions asset code requirement
     update_dict = update_data.model_dump(exclude_unset=True)
