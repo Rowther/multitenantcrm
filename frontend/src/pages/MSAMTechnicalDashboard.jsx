@@ -38,7 +38,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
   const fetchData = async (page = 1, filters = {}) => {
     try {
       const params = { page, limit: 10, ...filters };
-      
+
       const [statsRes, workOrdersRes, companyRes, clientsRes, employeesRes] = await Promise.all([
         axios.get(`${API}/companies/${user.company_id}/reports/overview`),
         axios.get(`${API}/companies/${user.company_id}/workorders`, { params }),
@@ -46,7 +46,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
         axios.get(`${API}/companies/${user.company_id}/clients`),
         axios.get(`${API}/companies/${user.company_id}/employees`)
       ]);
-      
+
       // Handle both old and new API response formats
       let workOrdersData, paginationData;
       if (workOrdersRes.data.work_orders) {
@@ -61,7 +61,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
           pages: Math.ceil(workOrdersData.length / 10)
         };
       }
-      
+
       setStats(statsRes.data);
       setWorkOrders(workOrdersData);
       setFilteredWorkOrders(workOrdersData);
@@ -109,7 +109,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
   };
 
   // Prepare data for charts
-  const statusData = stats?.status_breakdown ? 
+  const statusData = stats?.status_breakdown ?
     Object.entries(stats.status_breakdown).map(([name, value]) => ({ name, value })) : [];
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -117,15 +117,15 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
   const handleFilterChange = async (filters) => {
     try {
       const params = { page: 1, limit: 10 };
-      
+
       if (filters.search) params.search = filters.search;
       if (filters.status && filters.status !== 'all') params.status = filters.status;
       if (filters.priority && filters.priority !== 'all') params.priority = filters.priority;
       if (filters.clientId && filters.clientId !== 'all') params.client_id = filters.clientId;
       if (filters.assignedTo && filters.assignedTo !== 'all') params.assigned_to = filters.assignedTo;
-      
+
       const response = await axios.get(`${API}/companies/${user.company_id}/workorders`, { params });
-      
+
       // Handle both old and new API response formats
       let workOrdersData, paginationData;
       if (response.data.work_orders) {
@@ -140,7 +140,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
           pages: Math.ceil(workOrdersData.length / 10)
         };
       }
-      
+
       setFilteredWorkOrders(workOrdersData);
       setPagination(paginationData);
     } catch (error) {
@@ -159,7 +159,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
       toast.error('No report data available to export');
       return;
     }
-    
+
     const ws = XLSX.utils.json_to_sheet(detailedReportData.map(item => ({
       'Order Number': item.order_number,
       'Title': item.title,
@@ -170,11 +170,11 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
       'Total Revenue': item.total_revenue,
       'Profit/Loss': item.profit_loss
     })));
-    
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Work Order Reports');
     XLSX.writeFile(wb, `work-order-reports-${user.company_id}.xlsx`);
-    
+
     toast.success('Report exported to Excel successfully');
   };
 
@@ -184,16 +184,16 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
       toast.error('No report data available to export');
       return;
     }
-    
+
     const doc = new jsPDF();
-    
+
     // Add title
     doc.setFontSize(18);
     doc.text('Work Order Reports', 14, 20);
     doc.setFontSize(12);
     doc.text(`Company ID: ${user.company_id}`, 14, 30);
     doc.text(`Export Date: ${new Date().toLocaleDateString()}`, 14, 40);
-    
+
     // Add table
     const tableData = detailedReportData.map(item => [
       item.order_number,
@@ -205,7 +205,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
       `AED ${item.total_revenue?.toFixed(2) || '0.00'}`,
       `AED ${item.profit_loss?.toFixed(2) || '0.00'}`
     ]);
-    
+
     doc.autoTable({
       head: [['Order #', 'Title', 'Client', 'Status', 'Quoted Price', 'Expenses', 'Revenue', 'Profit/Loss']],
       body: tableData,
@@ -214,9 +214,9 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
       headStyles: { fillColor: [59, 130, 246] },
       alternateRowStyles: { fillColor: [245, 245, 245] }
     });
-    
+
     doc.save(`work-order-reports-${user.company_id}.pdf`);
-    
+
     toast.success('Report exported to PDF successfully');
   };
 
@@ -244,9 +244,9 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
   if (selectedWorkOrder) {
     return (
       <DashboardLayout user={user} onLogout={onLogout}>
-        <WorkOrderDetails 
-          workOrderId={selectedWorkOrder.id} 
-          companyId={user.company_id} 
+        <WorkOrderDetails
+          workOrderId={selectedWorkOrder.id}
+          companyId={user.company_id}
           onBack={() => setSelectedWorkOrder(null)}
           onEdit={handleEditWorkOrder}
           user={user}
@@ -262,14 +262,12 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
       </DashboardLayout>
     );
   }
-
   return (
     <DashboardLayout user={user} onLogout={onLogout}>
       <div className="space-y-6" data-testid="msam-technical-dashboard">
-        {/* Header with Tabs */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold text-slate-800" style={{fontFamily: 'Space Grotesk'}}>
+            <h1 className="text-4xl font-bold text-slate-800" style={{ fontFamily: 'Space Grotesk' }}>
               {activeTab === 'dashboard' ? 'MSAM Technical Solutions' : 'Reports'}
             </h1>
             <p className="text-slate-600 mt-2">
@@ -277,44 +275,10 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              onClick={() => setActiveTab('dashboard')}
-              variant={activeTab === 'dashboard' ? 'default' : 'outline'}
-              className="mr-2"
-            >
-              Dashboard
-            </Button>
-            <Button 
-              onClick={() => {
-                setActiveTab('reports');
-                if (detailedReportData.length === 0) {
-                  fetchDetailedReportData();
-                }
-              }}
-              variant={activeTab === 'reports' ? 'default' : 'outline'}
-              className="mr-4"
-            >
-              Reports
-            </Button>
-            
             {activeTab === 'dashboard' ? (
-              <>
-                <Button variant="outline" onClick={() => navigate('/preventive-maintenance')}>
-                  <Calendar className="w-4 h-4 mr-2" /> Preventive Maintenance
-                </Button>
-                <Button variant="outline" onClick={() => navigate('/reports')}>
-                  <BarChartIcon className="w-4 h-4 mr-2" /> Reports
-                </Button>
-                <Button variant="outline" onClick={() => navigate('/clients')}>
-                  <Users className="w-4 h-4 mr-2" /> Clients
-                </Button>
-                <Button variant="outline" onClick={() => navigate('/employees')}>
-                  <Users className="w-4 h-4 mr-2" /> Employees
-                </Button>
-                <Button onClick={() => setShowWorkOrderModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600" data-testid="create-workorder-button">
-                  <Plus className="w-4 h-4 mr-2" /> Create Work Order
-                </Button>
-              </>
+              <Button onClick={() => setShowWorkOrderModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600" data-testid="create-workorder-button">
+                <Plus className="w-4 h-4 mr-2" /> Create Work Order
+              </Button>
             ) : (
               <>
                 <Button onClick={exportToExcel} variant="outline" size="sm">
@@ -339,12 +303,12 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
                   <div>
                     <p className="text-sm text-blue-700 font-medium">Total Work Orders</p>
                     <p className="text-3xl font-bold text-blue-900 mt-2">{stats?.total_work_orders || 0}</p>
-                  </div>
+                  </div >
                   <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
                     <FileText className="w-6 h-6 text-white" />
                   </div>
-                </div>
-              </Card>
+                </div >
+              </Card >
 
               <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200" data-testid="revenue-card">
                 <div className="flex items-center justify-between">
@@ -381,11 +345,11 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
                   </div>
                 </div>
               </Card>
-            </div>
+            </div >
 
             {/* Profit & Loss Summary */}
-            <Card className="p-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Profit & Loss Summary</h2>
+            < Card className="p-6" >
+              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Profit & Loss Summary</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="p-4 bg-green-50 rounded-lg">
                   <p className="text-sm text-green-700 font-medium">Total Revenue</p>
@@ -400,115 +364,119 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
                   <p className="text-2xl font-bold text-blue-900 mt-2">AED {stats?.profit_margin?.toFixed(2) || '0.00'}</p>
                 </div>
               </div>
-            </Card>
+            </Card >
 
             {/* Work Orders by Status - Replaced Charts with Cards */}
-            <Card className="p-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Work Orders by Status</h2>
-              {statusData.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {statusData.map((item, index) => (
-                    <Card key={item.name} className="p-4 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-center">
-                        <h3 className="font-semibold text-slate-800">{item.name}</h3>
-                        <span className="text-2xl font-bold" style={{ color: COLORS[index % COLORS.length] }}>
-                          {item.value}
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-600 mt-1">
-                        {((item.value / statusData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1)}% of total
-                      </p>
-                      <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full" 
-                          style={{ 
-                            width: `${(item.value / Math.max(...statusData.map(d => d.value)) * 100)}%`,
-                            backgroundColor: COLORS[index % COLORS.length]
-                          }}
-                        ></div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-32 text-slate-500">
-                  No data available
-                </div>
-              )}
-            </Card>
+            < Card className="p-6" >
+              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Work Orders by Status</h2>
+              {
+                statusData.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {statusData.map((item, index) => (
+                      <Card key={item.name} className="p-4 hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-semibold text-slate-800">{item.name}</h3>
+                          <span className="text-2xl font-bold" style={{ color: COLORS[index % COLORS.length] }}>
+                            {item.value}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1">
+                          {((item.value / statusData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1)}% of total
+                        </p>
+                        <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
+                          <div
+                            className="h-2 rounded-full"
+                            style={{
+                              width: `${(item.value / Math.max(...statusData.map(d => d.value)) * 100)}%`,
+                              backgroundColor: COLORS[index % COLORS.length]
+                            }}
+                          ></div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-32 text-slate-500">
+                    No data available
+                  </div>
+                )
+              }
+            </Card >
 
             {/* Work Order Trends - Replaced Chart with Cards */}
-            <Card className="p-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Work Order Trends</h2>
-              {statusData.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-slate-700">Status</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-slate-700">Count</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-slate-700">Percentage</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-slate-700">Visual</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {statusData.map((item, index) => {
-                        const percentage = ((item.value / statusData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1);
-                        return (
-                          <tr key={item.name} className="border-b border-slate-100">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center">
-                                <div 
-                                  className="w-3 h-3 rounded-full mr-2" 
-                                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                                ></div>
-                                {item.name}
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 font-medium">{item.value}</td>
-                            <td className="py-3 px-4">{percentage}%</td>
-                            <td className="py-3 px-4">
-                              <div className="w-full bg-slate-200 rounded-full h-2">
-                                <div 
-                                  className="h-2 rounded-full" 
-                                  style={{ 
-                                    width: `${percentage}%`,
-                                    backgroundColor: COLORS[index % COLORS.length]
-                                  }}
-                                ></div>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-32 text-slate-500">
-                  No data available
-                </div>
-              )}
-            </Card>
+            < Card className="p-6" >
+              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Work Order Trends</h2>
+              {
+                statusData.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-2 px-4 text-sm font-semibold text-slate-700">Status</th>
+                          <th className="text-left py-2 px-4 text-sm font-semibold text-slate-700">Count</th>
+                          <th className="text-left py-2 px-4 text-sm font-semibold text-slate-700">Percentage</th>
+                          <th className="text-left py-2 px-4 text-sm font-semibold text-slate-700">Visual</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {statusData.map((item, index) => {
+                          const percentage = ((item.value / statusData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1);
+                          return (
+                            <tr key={item.name} className="border-b border-slate-100">
+                              <td className="py-3 px-4">
+                                <div className="flex items-center">
+                                  <div
+                                    className="w-3 h-3 rounded-full mr-2"
+                                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                                  ></div>
+                                  {item.name}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 font-medium">{item.value}</td>
+                              <td className="py-3 px-4">{percentage}%</td>
+                              <td className="py-3 px-4">
+                                <div className="w-full bg-slate-200 rounded-full h-2">
+                                  <div
+                                    className="h-2 rounded-full"
+                                    style={{
+                                      width: `${percentage}%`,
+                                      backgroundColor: COLORS[index % COLORS.length]
+                                    }}
+                                  ></div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-32 text-slate-500">
+                    No data available
+                  </div>
+                )
+              }
+            </Card >
 
             {/* Work Orders Table */}
-            <Card className="p-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Recent Work Orders</h2>
-              <WorkOrderFilters 
+            < Card className="p-6" >
+              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Recent Work Orders</h2>
+              <WorkOrderFilters
                 onFilterChange={handleFilterChange}
                 companyId={user.company_id}
                 clients={clients}
                 employees={employees}
               />
-              <WorkOrdersList 
-                workOrders={filteredWorkOrders} 
-                companyId={user.company_id} 
-                onRefresh={() => fetchData(pagination.page)} 
+              <WorkOrdersList
+                workOrders={filteredWorkOrders}
+                companyId={user.company_id}
+                onRefresh={() => fetchData(pagination.page)}
                 onSelectWorkOrder={handleWorkOrderSelect}
                 pagination={pagination}
                 onPageChange={handlePageChange}
               />
-            </Card>
+            </Card >
           </>
         ) : (
           /* Reports Tab Content */
@@ -570,7 +538,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
 
                 {/* Profit & Loss Summary */}
                 <Card className="p-6">
-                  <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Profit & Loss Summary</h2>
+                  <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Profit & Loss Summary</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="p-4 bg-green-50 rounded-lg">
                       <p className="text-sm text-green-700 font-medium">Total Revenue</p>
@@ -589,7 +557,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
 
                 {/* Detailed Profit/Loss Table */}
                 <Card className="p-6">
-                  <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Detailed Profit/Loss per Work Order</h2>
+                  <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Detailed Profit/Loss per Work Order</h2>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
@@ -643,7 +611,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
             )}
           </div>
         )}
-      </div>
+      </div >
 
       {showWorkOrderModal && (
         <WorkOrderModal
@@ -653,7 +621,7 @@ const MSAMTechnicalDashboard = ({ user, onLogout }) => {
           userId={user.id}
         />
       )}
-    </DashboardLayout>
+    </DashboardLayout >
   );
 };
 

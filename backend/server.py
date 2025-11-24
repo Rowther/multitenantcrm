@@ -2660,7 +2660,7 @@ app.add_middleware(GZipMiddleware, minimum_size=500)  # Reduced minimum size for
 
 # CORS configuration
 # Get CORS origins from environment variable
-raw_cors_origins = os.environ.get('CORS_ORIGINS', 'https://multitenantcrm.vercel.app,https://multitenantcrm-backend.onrender.com,http://localhost:3000,http://localhost:5173')
+raw_cors_origins = os.environ.get('CORS_ORIGINS', 'https://www.datastream.ae,https://multitenantcrm.onrender.com,https://multitenantcrm-backend.onrender.com,http://localhost:3000,http://localhost:5173')
 cors_origins = [origin.strip() for origin in raw_cors_origins.split(',')]
 
 # Add CORSMiddleware with enhanced configuration
@@ -2670,7 +2670,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel deployments
 )
 
 if __name__ == "__main__":

@@ -326,54 +326,25 @@ const AdminDashboard = ({ user, onLogout }) => {
     <DashboardLayout user={user} onLogout={onLogout}>
       <div className="space-y-4 md:space-y-6" data-testid="admin-dashboard">
         {/* Header with Tabs - Responsive */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-slate-800 break-words" style={{ fontFamily: 'Space Grotesk' }}>
+            <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-slate-800 break-words" style={{ fontFamily: 'Space Grotesk' }}>
               {activeTab === 'dashboard' ? company?.name : 'Reports'}
             </h1>
-            <p className="text-sm md:text-base text-slate-600 mt-1 md:mt-2">
+            <p className="text-sm text-slate-600 mt-1">
               {activeTab === 'dashboard' ? 'Admin Dashboard' : 'Detailed Work Order Reports'}
             </p>
           </div>
 
-          {/* Tab Navigation - Responsive */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setActiveTab('dashboard')}
-                variant={activeTab === 'dashboard' ? 'default' : 'outline'}
-                className="w-12 h-12 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 flex items-center justify-center"
-              >
-                <Home className="w-5 h-5" />
-                <span className="hidden sm:inline sm:ml-2">Dashboard</span>
-              </Button>
-              <Button
-                onClick={() => {
-                  setActiveTab('reports');
-                  if (!reportData) {
-                    fetchReportData();
-                  }
-                }}
-                variant={activeTab === 'reports' ? 'default' : 'outline'}
-                className="w-12 h-12 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 flex items-center justify-center"
-              >
-                <BarChart3 className="w-5 h-5" />
-                <span className="hidden sm:inline sm:ml-2">Reports</span>
-              </Button>
-            </div>
+          <div className="flex gap-2">
 
             <div className="flex gap-2">
               {activeTab === 'dashboard' ? (
-                <>
-                  <Button onClick={() => setShowUserModal(true)} variant="outline" data-testid="create-user-button" className="flex-1 sm:flex-none min-h-[44px]">
-                    <Plus className="w-4 h-4 mr-2" /> User
+                <div className="hidden sm:block flex-1 sm:flex-none">
+                  <Button onClick={() => setShowWorkOrderModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600 w-full min-h-[44px]" data-testid="create-workorder-button">
+                    <Plus className="w-4 h-4 mr-2" /> Work Order
                   </Button>
-                  <div className="hidden sm:block flex-1 sm:flex-none">
-                    <Button onClick={() => setShowWorkOrderModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600 w-full min-h-[44px]" data-testid="create-workorder-button">
-                      <Plus className="w-4 h-4 mr-2" /> Work Order
-                    </Button>
-                  </div>
-                </>
+                </div>
               ) : (
                 <>
                   <Button onClick={exportToExcel} variant="outline" size="sm" className="flex-1 sm:flex-none min-h-[44px]">
