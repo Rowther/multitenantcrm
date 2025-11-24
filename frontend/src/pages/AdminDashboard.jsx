@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { API } from '../App';
 import DashboardLayout from '../components/DashboardLayout';
+import DashboardSkeleton from '../components/DashboardSkeleton';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { FileText, DollarSign, Users, TrendingUp, Plus, Download } from 'lucide-react';
@@ -42,14 +43,14 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       setLoading(true);
       const params = { page, limit: 10, ...filters };
-      
+
       const [workOrdersRes, clientsRes, employeesRes, companyRes] = await Promise.all([
         axios.get(`${API}/companies/${user.company_id}/workorders`, { params }),
         axios.get(`${API}/companies/${user.company_id}/clients`),
         axios.get(`${API}/companies/${user.company_id}/employees`),
         axios.get(`${API}/companies/${user.company_id}`)
       ]);
-      
+
       // Handle both old and new API response formats
       let workOrdersData, paginationData;
       if (workOrdersRes.data.work_orders) {
@@ -64,20 +65,20 @@ const AdminDashboard = ({ user, onLogout }) => {
           pages: Math.ceil(workOrdersData.length / 10)
         };
       }
-      
+
       setWorkOrders(workOrdersData);
       setFilteredWorkOrders(workOrdersData);
       setClients(clientsRes.data);
       setEmployees(employeesRes.data);
       setCompany(companyRes.data);
-      
+
       // Calculate stats
       const totalRevenue = workOrdersData.reduce((sum, wo) => sum + (wo.paid_amount || 0), 0);
       const workOrdersByStatus = workOrdersData.reduce((acc, wo) => {
         acc[wo.status] = (acc[wo.status] || 0) + 1;
         return acc;
       }, {});
-      
+
       setStats({
         total_work_orders: workOrdersData.length,
         totalWorkOrders: workOrdersData.length,
@@ -90,7 +91,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         status_breakdown: workOrdersByStatus,
         workOrdersByStatus
       });
-      
+
       setPagination(paginationData);
     } catch (error) {
       toast.error('Failed to fetch data');
@@ -107,7 +108,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         axios.get(`${API}/companies/${user.company_id}/reports/overview`),
         axios.get(`${API}/companies/${user.company_id}/reports/profit-loss-details`)
       ]);
-      
+
       setReportData({
         overview: overviewRes.data,
         detailed: detailedRes.data.details || detailedRes.data
@@ -143,8 +144,8 @@ const AdminDashboard = ({ user, onLogout }) => {
       <div className="flex flex-col gap-4">
         <p>Are you sure you want to delete this user?</p>
         <div className="flex gap-2">
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             size="sm"
             onClick={async () => {
               try {
@@ -158,8 +159,8 @@ const AdminDashboard = ({ user, onLogout }) => {
           >
             Delete
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => toast.dismiss()}
           >
@@ -182,7 +183,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   // Handle view work order - navigate to work order details page
   const handleViewWorkOrder = (workOrder) => {
-    console.log('Navigating to work order details for:', workOrder);
+    // console.log('Navigating to work order details for:', workOrder);
     navigate(`/companies/${user.company_id}/workorders/${workOrder.id}`);
   };
 
@@ -190,15 +191,15 @@ const AdminDashboard = ({ user, onLogout }) => {
   const handleFilterChange = async (filters) => {
     try {
       const params = { page: 1, limit: 10 };
-      
+
       if (filters.search) params.search = filters.search;
       if (filters.status && filters.status !== 'all') params.status = filters.status;
       if (filters.priority && filters.priority !== 'all') params.priority = filters.priority;
       if (filters.clientId && filters.clientId !== 'all') params.client_id = filters.clientId;
       if (filters.assignedTo && filters.assignedTo !== 'all') params.assigned_to = filters.assignedTo;
-      
+
       const response = await axios.get(`${API}/companies/${user.company_id}/workorders`, { params });
-      
+
       // Handle both old and new API response formats
       let workOrdersData, paginationData;
       if (response.data.work_orders) {
@@ -213,7 +214,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           pages: Math.ceil(workOrdersData.length / 10)
         };
       }
-      
+
       setFilteredWorkOrders(workOrdersData);
       setPagination(paginationData);
     } catch (error) {
@@ -232,7 +233,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       toast.error('No report data available to export');
       return;
     }
-    
+
     const ws = XLSX.utils.json_to_sheet(reportData.detailed.map(item => ({
       'Order Number': item.order_number,
       'Title': item.title,
@@ -243,11 +244,11 @@ const AdminDashboard = ({ user, onLogout }) => {
       'Total Revenue': item.total_revenue,
       'Profit/Loss': item.profit_loss
     })));
-    
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Work Order Reports');
     XLSX.writeFile(wb, `work-order-reports-${user.company_id}.xlsx`);
-    
+
     toast.success('Report exported to Excel successfully');
   };
 
@@ -257,16 +258,16 @@ const AdminDashboard = ({ user, onLogout }) => {
       toast.error('No report data available to export');
       return;
     }
-    
+
     const doc = new jsPDF();
-    
+
     // Add title
     doc.setFontSize(18);
     doc.text('Work Order Reports', 14, 20);
     doc.setFontSize(12);
     doc.text(`Company ID: ${user.company_id}`, 14, 30);
     doc.text(`Export Date: ${new Date().toLocaleDateString()}`, 14, 40);
-    
+
     // Add table
     const tableData = reportData.detailed.map(item => [
       item.order_number,
@@ -278,7 +279,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       `AED ${item.total_revenue?.toFixed(2) || '0.00'}`,
       `AED ${item.profit_loss?.toFixed(2) || '0.00'}`
     ]);
-    
+
     doc.autoTable({
       head: [['Order #', 'Title', 'Client', 'Status', 'Quoted Price', 'Expenses', 'Revenue', 'Profit/Loss']],
       body: tableData,
@@ -287,9 +288,9 @@ const AdminDashboard = ({ user, onLogout }) => {
       headStyles: { fillColor: [59, 130, 246] },
       alternateRowStyles: { fillColor: [245, 245, 245] }
     });
-    
+
     doc.save(`work-order-reports-${user.company_id}.pdf`);
-    
+
     toast.success('Report exported to PDF successfully');
   };
 
@@ -313,118 +314,130 @@ const AdminDashboard = ({ user, onLogout }) => {
     return 'text-slate-600';
   };
 
-  if (loading && activeTab === 'dashboard') {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  if (loading && activeTab === 'dashboard' && !stats) {
+    return (
+      <DashboardLayout user={user} onLogout={onLogout}>
+        <DashboardSkeleton />
+      </DashboardLayout>
+    );
   }
 
   return (
     <DashboardLayout user={user} onLogout={onLogout}>
-      <div className="space-y-6" data-testid="admin-dashboard">
-        {/* Header with Tabs */}
-        <div className="flex justify-between items-center">
+      <div className="space-y-4 md:space-y-6" data-testid="admin-dashboard">
+        {/* Header with Tabs - Responsive */}
+        <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-slate-800" style={{fontFamily: 'Space Grotesk'}}>
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-800" style={{ fontFamily: 'Space Grotesk' }}>
               {activeTab === 'dashboard' ? company?.name : 'Reports'}
             </h1>
-            <p className="text-slate-600 mt-2">
+            <p className="text-sm md:text-base text-slate-600 mt-1 md:mt-2">
               {activeTab === 'dashboard' ? 'Admin Dashboard' : 'Detailed Work Order Reports'}
             </p>
           </div>
-          
-          {/* Tab Navigation */}
-          <div className="flex gap-2">
-            <Button 
-              onClick={() => setActiveTab('dashboard')}
-              variant={activeTab === 'dashboard' ? 'default' : 'outline'}
-              className="mr-2"
-            >
-              Dashboard
-            </Button>
-            <Button 
-              onClick={() => {
-                setActiveTab('reports');
-                if (!reportData) {
-                  fetchReportData();
-                }
-              }}
-              variant={activeTab === 'reports' ? 'default' : 'outline'}
-              className="mr-4"
-            >
-              Reports
-            </Button>
-            
-            {activeTab === 'dashboard' ? (
-              <>
-                <Button onClick={() => setShowUserModal(true)} variant="outline" data-testid="create-user-button">
-                  <Plus className="w-4 h-4 mr-2" /> Create User
-                </Button>
-                <Button onClick={() => setShowWorkOrderModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600" data-testid="create-workorder-button">
-                  <Plus className="w-4 h-4 mr-2" /> Create Work Order
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button onClick={exportToExcel} variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export XLS
-                </Button>
-                <Button onClick={exportToPDF} variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export PDF
-                </Button>
-              </>
-            )}
+
+          {/* Tab Navigation - Responsive */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setActiveTab('dashboard')}
+                variant={activeTab === 'dashboard' ? 'default' : 'outline'}
+                className="w-12 h-12 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 flex items-center justify-center"
+              >
+                <Home className="w-5 h-5" />
+                <span className="hidden sm:inline sm:ml-2">Dashboard</span>
+              </Button>
+              <Button
+                onClick={() => {
+                  setActiveTab('reports');
+                  if (!reportData) {
+                    fetchReportData();
+                  }
+                }}
+                variant={activeTab === 'reports' ? 'default' : 'outline'}
+                className="w-12 h-12 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 flex items-center justify-center"
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="hidden sm:inline sm:ml-2">Reports</span>
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              {activeTab === 'dashboard' ? (
+                <>
+                  <Button onClick={() => setShowUserModal(true)} variant="outline" data-testid="create-user-button" className="flex-1 sm:flex-none min-h-[44px]">
+                    <Plus className="w-4 h-4 mr-2" /> User
+                  </Button>
+                  <div className="hidden sm:block flex-1 sm:flex-none">
+                    <Button onClick={() => setShowWorkOrderModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600 w-full min-h-[44px]" data-testid="create-workorder-button">
+                      <Plus className="w-4 h-4 mr-2" /> Work Order
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Button onClick={exportToExcel} variant="outline" size="sm" className="flex-1 sm:flex-none min-h-[44px]">
+                    <Download className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Export</span> XLS
+                  </Button>
+                  <Button onClick={exportToPDF} variant="outline" size="sm" className="flex-1 sm:flex-none min-h-[44px]">
+                    <Download className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Export</span> PDF
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         {activeTab === 'dashboard' ? (
           <>
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200" data-testid="work-orders-card">
+            {/* Stats Cards - Responsive Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              <Card className="p-4 md:p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200" data-testid="work-orders-card">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-blue-700 font-medium">Total Work Orders</p>
-                    <p className="text-3xl font-bold text-blue-900 mt-2">{stats?.total_work_orders || stats?.totalWorkOrders || 0}</p>
+                    <p className="text-xs md:text-sm text-blue-700 font-medium">Total Work Orders</p>
+                    <p className="text-2xl md:text-3xl font-bold text-blue-900 mt-1 md:mt-2">{stats?.total_work_orders || stats?.totalWorkOrders || 0}</p>
                   </div>
-                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-white" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200" data-testid="revenue-card">
+              <Card className="p-4 md:p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200" data-testid="revenue-card">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-700 font-medium">Revenue</p>
-                    <p className="text-3xl font-bold text-green-900 mt-2">AED {(stats?.total_revenue || stats?.totalRevenue || 0).toFixed(0)}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs md:text-sm text-green-700 font-medium">Revenue</p>
+                    <p className="text-2xl md:text-3xl font-bold text-green-900 mt-1 md:mt-2 truncate">AED {(stats?.total_revenue || stats?.totalRevenue || 0).toFixed(0)}</p>
                   </div>
-                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-white" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200" data-testid="profit-card">
+              <Card className="p-4 md:p-6 bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200" data-testid="profit-card">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-amber-700 font-medium">Profit Margin</p>
-                    <p className="text-3xl font-bold text-amber-900 mt-2">AED {(stats?.profit_margin || stats?.profitMargin || 0).toFixed(0)}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs md:text-sm text-amber-700 font-medium">Profit Margin</p>
+                    <p className="text-2xl md:text-3xl font-bold text-amber-900 mt-1 md:mt-2 truncate">AED {(stats?.profit_margin || stats?.profitMargin || 0).toFixed(0)}</p>
                   </div>
-                  <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center">
-                    <TrendingUp className="w-6 h-6 text-white" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200" data-testid="clients-card">
+              <Card className="p-4 md:p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200" data-testid="clients-card">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-purple-700 font-medium">Active Clients</p>
-                    <p className="text-3xl font-bold text-purple-900 mt-2">{stats?.active_clients || stats?.activeClients || 0}</p>
+                    <p className="text-xs md:text-sm text-purple-700 font-medium">Active Clients</p>
+                    <p className="text-2xl md:text-3xl font-bold text-purple-900 mt-1 md:mt-2">{stats?.active_clients || stats?.activeClients || 0}</p>
                   </div>
-                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
-                    <Users className="w-6 h-6 text-white" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Users className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
                 </div>
               </Card>
@@ -432,18 +445,18 @@ const AdminDashboard = ({ user, onLogout }) => {
 
             {/* Work Orders by Status - Replaced Chart with Cards */}
             {(stats?.status_breakdown || stats?.workOrdersByStatus) && (
-              <Card className="p-6">
-                <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Work Orders by Status</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Work Orders by Status</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(stats.status_breakdown || stats.workOrdersByStatus).map(([status, count]) => (
                     <Card key={status} className="p-4 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-center">
-                        <h3 className="font-semibold text-slate-800">{status}</h3>
-                        <span className="text-2xl font-bold text-blue-600">{count}</span>
+                        <h3 className="font-semibold text-slate-800 text-sm md:text-base">{status}</h3>
+                        <span className="text-xl md:text-2xl font-bold text-blue-600">{count}</span>
                       </div>
                       <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full" 
+                        <div
+                          className="bg-blue-600 h-2 rounded-full"
                           style={{ width: `${(count / Math.max(...Object.values(stats.status_breakdown || stats.workOrdersByStatus)) * 100)}%` }}
                         ></div>
                       </div>
@@ -454,18 +467,18 @@ const AdminDashboard = ({ user, onLogout }) => {
             )}
 
             {/* Work Orders Table */}
-            <Card className="p-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Recent Work Orders</h2>
-              <WorkOrderFilters 
+            <Card className="p-4 md:p-6">
+              <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Recent Work Orders</h2>
+              <WorkOrderFilters
                 onFilterChange={handleFilterChange}
                 companyId={user.company_id}
                 clients={clients}
                 employees={employees}
               />
-              <WorkOrdersList 
-                workOrders={filteredWorkOrders} 
-                companyId={user.company_id} 
-                onRefresh={() => fetchData(pagination.page)} 
+              <WorkOrdersList
+                workOrders={filteredWorkOrders}
+                companyId={user.company_id}
+                onRefresh={() => fetchData(pagination.page)}
                 onViewWorkOrder={handleViewWorkOrder}
                 pagination={pagination}
                 onPageChange={handlePageChange}
@@ -532,7 +545,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
                 {/* Profit & Loss Summary */}
                 <Card className="p-6">
-                  <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Profit & Loss Summary</h2>
+                  <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Profit & Loss Summary</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="p-4 bg-green-50 rounded-lg">
                       <p className="text-sm text-green-700 font-medium">Total Revenue</p>
@@ -551,7 +564,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
                 {/* Detailed Profit/Loss Table */}
                 <Card className="p-6">
-                  <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Detailed Profit/Loss per Work Order</h2>
+                  <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Detailed Profit/Loss per Work Order</h2>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>

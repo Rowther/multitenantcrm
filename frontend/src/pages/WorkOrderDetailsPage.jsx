@@ -14,7 +14,7 @@ const WorkOrderDetailsPage = ({ user, onLogout }) => {
   const handleEdit = (workOrder) => {
     // For now, we'll just go back to the list view
     // In the future, we can implement edit functionality
-    console.log('Edit work order:', workOrder);
+    // console.log('Edit work order:', workOrder);
   };
 
   return (

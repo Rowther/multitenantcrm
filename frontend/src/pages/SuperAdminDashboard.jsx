@@ -78,14 +78,15 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
     <DashboardLayout user={user} onLogout={onLogout} onUpdateUser={onUpdateUser}>
       <div className="space-y-6" data-testid="superadmin-dashboard">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-slate-800" style={{fontFamily: 'Space Grotesk'}}>SuperAdmin Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800" style={{ fontFamily: 'Space Grotesk' }}>SuperAdmin Dashboard</h1>
             <p className="text-slate-600 mt-2">Manage all companies and users</p>
           </div>
           <div className="flex gap-3">
-            <Button onClick={() => setShowUserModal(true)} variant="outline" data-testid="create-user-button">
-              <Plus className="w-4 h-4 mr-2" /> Create User
+            <Button onClick={() => setShowUserModal(true)} variant="outline" data-testid="create-user-button" className="w-12 h-12 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 flex items-center justify-center">
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline sm:ml-2">Create User</span>
             </Button>
 
           </div>
@@ -147,10 +148,10 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
         </div>
 
         {/* Companies Overview */}
-        <Card className="p-6">
-          <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Companies Overview</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <Card className="p-4 sm:p-6">
+          <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Companies Overview</h2>
+          <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+            <table className="min-w-full">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Company</th>
@@ -166,7 +167,7 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
                   // Safely extract revenue and work orders
                   const revenue = companyData ? parseFloat(companyData.total_revenue) || 0 : 0;
                   const workOrders = companyData ? parseInt(companyData.total_work_orders) || 0 : 0;
-                  
+
                   return (
                     <tr key={company.id} className="border-b border-slate-100 hover:bg-slate-50" data-testid={`company-row-${company.id}`}>
                       <td className="py-4 px-4">
@@ -184,15 +185,15 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
                       <td className="py-4 px-4 text-slate-700">{revenue.toFixed(2)} AED</td>
                       <td className="py-4 px-4">
                         <div className="flex gap-2">
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => navigate(`/companies/${company.id}`)}
                           >
                             View Details
                           </Button>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => {
                               setSelectedCompanyId(company.id);
@@ -214,14 +215,14 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
         {/* Bento Card for Revenue by Company */}
         {summary && summary.companies.length > 0 && (
           <Card className="p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4" style={{fontFamily: 'Space Grotesk'}}>Revenue by Company</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Revenue by Company</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {summary.companies.map((companyData) => {
                 // Safely extract data
                 const revenue = parseFloat(companyData.total_revenue) || 0;
                 const workOrders = parseInt(companyData.total_work_orders) || 0;
                 const avgRevenuePerWO = workOrders > 0 ? revenue / workOrders : 0;
-                
+
                 return (
                   <div key={companyData.company_id} className="bg-slate-50 rounded-lg p-4">
                     <div className="flex justify-between items-start">

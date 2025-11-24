@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { toast } from 'sonner';
 import CompletionImageModal from './CompletionImageModal'; // Added import
 
-const StatusUpdater = ({ workOrderId, companyId, currentStatus, onStatusUpdate, user }) => {
+const StatusUpdater = ({ workOrderId, companyId, currentStatus, onStatusUpdate, user, isEmployee = false }) => {
   const [newStatus, setNewStatus] = useState(currentStatus);
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null); // Added state for company information
@@ -44,7 +44,7 @@ const StatusUpdater = ({ workOrderId, companyId, currentStatus, onStatusUpdate, 
       await axios.put(`${API}/companies/${companyId}/workorders/${workOrderId}`, {
         status: newStatus
       });
-      
+
       toast.success('Status updated successfully');
       onStatusUpdate(newStatus);
     } catch (error) {
@@ -55,7 +55,7 @@ const StatusUpdater = ({ workOrderId, companyId, currentStatus, onStatusUpdate, 
   };
 
   // Define the status flow
-  const statusFlow = [
+  const allStatuses = [
     { value: 'DRAFT', label: 'Draft' },
     { value: 'PENDING', label: 'Pending' },
     { value: 'APPROVED', label: 'Approved' },
@@ -63,6 +63,15 @@ const StatusUpdater = ({ workOrderId, companyId, currentStatus, onStatusUpdate, 
     { value: 'COMPLETED', label: 'Completed' },
     { value: 'CANCELLED', label: 'Cancelled' }
   ];
+
+  // Employee status options (only IN_PROGRESS and COMPLETED)
+  const employeeStatuses = [
+    { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'COMPLETED', label: 'Completed' }
+  ];
+
+  // Use employee statuses if isEmployee is true, otherwise use all statuses
+  const statusFlow = isEmployee ? employeeStatuses : allStatuses;
 
   // Handle completion with images
   const handleCompletionSuccess = () => {
@@ -90,15 +99,15 @@ const StatusUpdater = ({ workOrderId, companyId, currentStatus, onStatusUpdate, 
             </SelectContent>
           </Select>
         </div>
-        <Button 
-          onClick={handleStatusUpdate} 
+        <Button
+          onClick={handleStatusUpdate}
           disabled={loading}
           className="bg-gradient-to-r from-blue-500 to-indigo-600"
         >
           {loading ? 'Updating...' : 'Update Status'}
         </Button>
       </div>
-      
+
       {/* Completion Image Modal for MSAM */}
       {showCompletionModal && (
         <CompletionImageModal

@@ -25,7 +25,7 @@ const UsersPage = ({ user, onLogout }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       if (user.role === 'SUPERADMIN') {
         // SuperAdmin can see all users and all companies
         const [usersRes, companiesRes] = await Promise.all([
@@ -34,7 +34,7 @@ const UsersPage = ({ user, onLogout }) => {
         ]);
         setUsers(usersRes.data);
         setCompanies(companiesRes.data);
-        
+
         // Fetch clients for all companies
         const clientsData = [];
         for (const company of companiesRes.data) {
@@ -76,8 +76,8 @@ const UsersPage = ({ user, onLogout }) => {
       <div className="flex flex-col gap-4">
         <p>Are you sure you want to delete this user?</p>
         <div className="flex gap-2">
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             size="sm"
             onClick={async () => {
               try {
@@ -91,8 +91,8 @@ const UsersPage = ({ user, onLogout }) => {
           >
             Delete
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => toast.dismiss()}
           >
@@ -130,19 +130,24 @@ const UsersPage = ({ user, onLogout }) => {
 
   return (
     <DashboardLayout user={user} onLogout={onLogout}>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-bold text-slate-800" style={{fontFamily: 'Space Grotesk'}}>Users Management</h1>
-          <Button 
+      <div className="space-y-4 md:space-y-6">
+        {/* Header - Responsive */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-800" style={{ fontFamily: 'Space Grotesk' }}>
+            Users Management
+          </h1>
+          <Button
             onClick={handleCreateUser}
             variant="outline"
             data-testid="create-user-button"
+            className="w-full sm:w-auto min-h-[44px]"
           >
             <Plus className="w-4 h-4 mr-2" /> Create User
           </Button>
         </div>
 
-        <Card className="p-6">
+        {/* Desktop Table View */}
+        <Card className="hidden md:block p-4 lg:p-6">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -163,9 +168,7 @@ const UsersPage = ({ user, onLogout }) => {
                   return (
                     <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-4 px-4">
-                        <div>
-                          <p className="font-semibold text-slate-800">{u.display_name}</p>
-                        </div>
+                        <p className="font-semibold text-slate-800">{u.display_name}</p>
                       </td>
                       <td className="py-4 px-4 text-slate-700">{u.email}</td>
                       <td className="py-4 px-4">
@@ -181,17 +184,19 @@ const UsersPage = ({ user, onLogout }) => {
                       )}
                       <td className="py-4 px-4">
                         <div className="flex gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleEditUser(u)}
-                            data-testid={`edit-user-${u.id}`}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          {user.role === 'SUPERADMIN' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditUser(u)}
+                              data-testid={`edit-user-${u.id}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleDeleteUser(u.id)}
                             className="text-red-500 hover:text-red-700"
                             data-testid={`delete-user-${u.id}`}
@@ -208,6 +213,72 @@ const UsersPage = ({ user, onLogout }) => {
           </div>
         </Card>
 
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-4">
+          {users.map((u) => {
+            const company = user.role === 'SUPERADMIN' ? companies.find(c => c.id === u.company_id) : null;
+            return (
+              <Card key={u.id} className="p-4">
+                <div className="space-y-3">
+                  {/* User Info */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-slate-800 text-base truncate">{u.display_name}</h3>
+                      <p className="text-sm text-slate-600 truncate">{u.email}</p>
+                    </div>
+                    <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium flex-shrink-0">
+                      {u.role}
+                    </span>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between py-2 border-t border-slate-100">
+                      <span className="text-slate-500">Phone:</span>
+                      <span className="text-slate-800 font-medium">{u.phone || 'N/A'}</span>
+                    </div>
+                    {user.role === 'SUPERADMIN' && (
+                      <div className="flex justify-between py-2 border-t border-slate-100">
+                        <span className="text-slate-500">Company:</span>
+                        <span className="text-slate-800 font-medium truncate ml-2">
+                          {company ? company.name : 'N/A'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2 border-t border-slate-100">
+                    {user.role === 'SUPERADMIN' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditUser(u)}
+                        data-testid={`edit-user-${u.id}`}
+                        className="flex-1 min-h-[44px]"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteUser(u.id)}
+                      className="flex-1 min-h-[44px] text-red-500 hover:text-red-700 border-red-200 hover:border-red-300"
+                      data-testid={`delete-user-${u.id}`}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Modals */}
         {showCreateModal && (
           <UserModal
             onClose={() => setShowCreateModal(false)}

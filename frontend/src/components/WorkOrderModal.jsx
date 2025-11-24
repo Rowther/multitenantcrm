@@ -190,14 +190,14 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
         formDataObj.append('file', file);
         
         // Debug: Log the file and formData
-        console.log('Uploading file:', file);
-        console.log('FormData:', formDataObj);
+        // console.log('Uploading file:', file);
+        // console.log('FormData:', formDataObj);
         
         // Upload file - let axios handle the Content-Type header automatically
         const response = await axios.post(`${API}/upload`, formDataObj);
         
         // Debug: Log the response
-        console.log('Upload response:', response);
+        // console.log('Upload response:', response);
         
         // Add uploaded file to attachments
         const newAttachment = response.data.path; // Assuming backend returns file path

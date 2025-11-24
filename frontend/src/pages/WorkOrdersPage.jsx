@@ -21,15 +21,15 @@ const WorkOrdersPage = ({ user, onLogout }) => {
   const [employees, setEmployees] = useState([]); // Added state for employees
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 10,
+    limit: 20,  // Increased from 10 to 20 for better performance
     total: 0,
     pages: 1
   });
 
 
-  
+
   useEffect(() => {
-    
+
     fetchData();
   }, []);
 
@@ -43,7 +43,7 @@ const WorkOrdersPage = ({ user, onLogout }) => {
         axios.get(`${API}/companies/${user.company_id}/clients`),
         axios.get(`${API}/companies/${user.company_id}/employees`)
       ]);
-      
+
       // Handle both old and new API response formats
       if (workOrdersRes.data.work_orders) {
         // New format with pagination
@@ -55,7 +55,7 @@ const WorkOrdersPage = ({ user, onLogout }) => {
         setWorkOrders(workOrdersRes.data);
         setFilteredWorkOrders(workOrdersRes.data);
       }
-      
+
       setClients(clientsRes.data);
       setEmployees(employeesRes.data);
     } catch (error) {
@@ -89,15 +89,15 @@ const WorkOrdersPage = ({ user, onLogout }) => {
   const handleFilterChange = async (filters) => {
     try {
       const params = { page: 1, limit: pagination.limit };
-      
+
       if (filters.search) params.search = filters.search;
       if (filters.status && filters.status !== 'all') params.status = filters.status;
       if (filters.priority && filters.priority !== 'all') params.priority = filters.priority;
       if (filters.clientId && filters.clientId !== 'all') params.client_id = filters.clientId;
       if (filters.assignedTo && filters.assignedTo !== 'all') params.assigned_to = filters.assignedTo;
-      
+
       const response = await axios.get(`${API}/companies/${user.company_id}/workorders`, { params });
-      
+
       // Handle both old and new API response formats
       if (response.data.work_orders) {
         // New format with pagination
@@ -130,9 +130,9 @@ const WorkOrdersPage = ({ user, onLogout }) => {
 
     return (
       <DashboardLayout user={user} onLogout={onLogout}>
-        <WorkOrderDetails 
-          workOrderId={selectedWorkOrder.id} 
-          companyId={user.company_id} 
+        <WorkOrderDetails
+          workOrderId={selectedWorkOrder.id}
+          companyId={user.company_id}
           onBack={() => {
 
             setSelectedWorkOrder(null);
@@ -151,25 +151,31 @@ const WorkOrdersPage = ({ user, onLogout }) => {
 
   return (
     <DashboardLayout user={user} onLogout={onLogout}>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-bold text-slate-800" style={{fontFamily: 'Space Grotesk'}}>Work Orders</h1>
-          <Button onClick={() => setShowModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600">
+      <div className="space-y-4 md:space-y-6">
+        {/* Header - Responsive */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-800" style={{ fontFamily: 'Space Grotesk' }}>
+            Work Orders
+          </h1>
+          <Button
+            onClick={() => setShowModal(true)}
+            className="bg-gradient-to-r from-blue-500 to-indigo-600 w-full sm:w-auto min-h-[44px]"
+          >
             <Plus className="w-4 h-4 mr-2" /> Create Work Order
           </Button>
         </div>
 
-        <Card className="p-6">
-          <WorkOrderFilters 
+        <Card className="p-4 md:p-6">
+          <WorkOrderFilters
             onFilterChange={handleFilterChange}
             companyId={user.company_id}
             clients={clients}
             employees={employees}
           />
-          <WorkOrdersList 
-            workOrders={filteredWorkOrders} 
-            companyId={user.company_id} 
-            onRefresh={() => fetchData(pagination.page)} 
+          <WorkOrdersList
+            workOrders={filteredWorkOrders}
+            companyId={user.company_id}
+            onRefresh={() => fetchData(pagination.page)}
             isEmployee={user.role === 'EMPLOYEE'}
             onEditWorkOrder={handleEditWorkOrder}
             onSelectWorkOrder={handleWorkOrderSelect}

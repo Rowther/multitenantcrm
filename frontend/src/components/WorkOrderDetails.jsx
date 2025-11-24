@@ -16,21 +16,21 @@ const constructAttachmentUrl = (attachmentPath) => {
   if (attachmentPath.startsWith('http')) {
     return attachmentPath;
   }
-  
+
   // If it's a relative path starting with /uploads/
   if (attachmentPath.startsWith('/uploads/')) {
     // Get the base URL without the /api part
     const baseUrl = API.replace('/api', '');
     return `${baseUrl}${attachmentPath}`;
   }
-  
+
   // For any other relative path
   if (!attachmentPath.includes('://')) {
     const baseUrl = API.replace('/api', '');
     const formattedPath = attachmentPath.startsWith('/') ? attachmentPath : `/${attachmentPath}`;
     return `${baseUrl}${formattedPath}`;
   }
-  
+
   // Fallback
   return attachmentPath;
 };
@@ -42,19 +42,20 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
   const [client, setClient] = useState(null);
   const [technicians, setTechnicians] = useState([]);
   const [vehicle, setVehicle] = useState(null);
+  const [currentEmployee, setCurrentEmployee] = useState(null); // Employee record for current user
 
   // Function to check if deadline is approaching (within 2 days) and work order is not completed
   const isDeadlineApproaching = (promiseDate, status) => {
     // Only highlight if status is not completed
     if (status === 'COMPLETED') return false;
-    
+
     if (!promiseDate) return false;
-    
+
     const deadline = new Date(promiseDate);
     const now = new Date();
     const timeDiff = deadline.getTime() - now.getTime();
     const daysDiff = timeDiff / (1000 * 3600 * 24);
-    
+
     // Highlight if deadline is within 2 days and not yet passed
     return daysDiff <= 2 && daysDiff >= 0;
   };
@@ -63,43 +64,55 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
   const canEdit = () => {
     return user.role === 'SUPERADMIN' || user.role === 'ADMIN' || user.role === 'EMPLOYEE';
   };
-  
+
   // Check if user can update status (employees can only update status on assigned work orders)
   const canUpdateStatus = () => {
     if (user.role === 'SUPERADMIN' || user.role === 'ADMIN') {
       return true;
     }
     if (user.role === 'EMPLOYEE') {
-      // Check if employee is assigned to this work order
-      return workOrder && workOrder.assigned_technicians && workOrder.assigned_technicians.includes(user.id);
-    }
-    return false;
-  };
-  
-  // Check if user can perform full edit actions (not just status updates)
-  const canFullEdit = () => {
-    return user.role === 'SUPERADMIN' || user.role === 'ADMIN';
-  };
-  
-  // Check if user can see the edit button
-  const canEditWorkOrder = () => {
-    return user.role === 'SUPERADMIN' || user.role === 'ADMIN';
-  };
-  
-  // Check if user can update work order status
-  const canUpdateWorkOrderStatus = () => {
-    if (user.role === 'SUPERADMIN' || user.role === 'ADMIN') {
-      return true;
-    }
-    if (user.role === 'EMPLOYEE') {
-      // Check if employee is assigned to this work order
-      return workOrder && workOrder.assigned_technicians && workOrder.assigned_technicians.includes(user.id);
+      // Check if employee is assigned to this work order using either employee ID or user ID
+      return workOrder && workOrder.assigned_technicians && (
+        workOrder.assigned_technicians.includes(user.id) ||
+        (currentEmployee && workOrder.assigned_technicians.includes(currentEmployee.id))
+      );
     }
     return false;
   };
 
+  // Check if user can perform full edit actions (not just status updates)
+  const canFullEdit = () => {
+    return user.role === 'SUPERADMIN' || user.role === 'ADMIN';
+  };
+
+  // Check if user can see the edit button
+  const canEditWorkOrder = () => {
+    return user.role === 'SUPERADMIN' || user.role === 'ADMIN';
+  };
+
+  // Check if user can update work order status
+  const canUpdateWorkOrderStatus = () => {
+ 
+    if (user.role === 'SUPERADMIN' || user.role === 'ADMIN') {
+      return true;
+    }
+    if (user.role === 'EMPLOYEE') {
+      // Check if employee is assigned to this work order using either employee ID or user ID
+      return workOrder && workOrder.assigned_technicians && (
+        (currentEmployee && workOrder.assigned_technicians.includes(currentEmployee.id)) ||
+        workOrder.assigned_technicians.includes(user.id)
+      );
+    }
+    return false;
+  };
+
+  // Check if user is an employee
+  const isEmployee = () => {
+    return user.role === 'EMPLOYEE';
+  };
+
   useEffect(() => {
-    
+
     fetchData();
   }, [workOrderId, companyId]);
 
@@ -111,7 +124,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
       const woResponse = await axios.get(`${API}/companies/${companyId}/workorders/${workOrderId}`);
 
       setWorkOrder(woResponse.data);
-      
+
 
 
       // Fetch client details if exists
@@ -129,12 +142,42 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
       if (woResponse.data.assigned_technicians && woResponse.data.assigned_technicians.length > 0) {
         try {
           const employeesResponse = await axios.get(`${API}/companies/${companyId}/employees`);
-          const techData = employeesResponse.data.filter(emp => 
+          // console.log('Employees fetched:', employeesResponse.data);
+          const techData = employeesResponse.data.filter(emp =>
             woResponse.data.assigned_technicians.includes(emp.id)
           );
           setTechnicians(techData);
+          // Find current employee record
+          if (user.role === 'EMPLOYEE') {
+            // Try matching by user.id directly (employee ID might be the same as user ID)
+            let currentEmp = employeesResponse.data.find(emp =>
+              emp.id === user.id || emp.user_id === user.id
+            );
+            if (!currentEmp) {
+              // Fallback: match nested user object
+              currentEmp = employeesResponse.data.find(emp => emp.user?.id === user.id);
+            }
+            setCurrentEmployee(currentEmp);
+            // console.log('Current employee record after matching:', currentEmp);
+          }
         } catch (e) {
           // console.log('Failed to fetch technician data');
+        }
+      } else if (user.role === 'EMPLOYEE') {
+        // Even if no technicians assigned, fetch current employee record
+        try {
+          const employeesResponse = await axios.get(`${API}/companies/${companyId}/employees`);
+          // console.log('Employees fetched (no techs):', employeesResponse.data);
+          let currentEmp = employeesResponse.data.find(emp =>
+            emp.id === user.id || emp.user_id === user.id
+          );
+          if (!currentEmp) {
+            currentEmp = employeesResponse.data.find(emp => emp.user?.id === user.id);
+          }
+          setCurrentEmployee(currentEmp);
+          // console.log('Current employee record (no techs):', currentEmp);
+        } catch (e) {
+          // console.log('Failed to fetch employee data');
         }
       }
 
@@ -195,15 +238,15 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <Button variant="outline" onClick={onBack}>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto min-h-[44px]">
           ← Back to Work Orders
         </Button>
         {/* Only show edit button for users with full edit permissions */}
         {canEditWorkOrder() && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onEdit(workOrder)}>
+            <Button variant="outline" onClick={() => onEdit(workOrder)} className="flex-1 sm:flex-initial min-h-[44px]">
               <Edit className="w-4 h-4 mr-2" /> Edit
             </Button>
           </div>
@@ -215,34 +258,34 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
           <div>
             <h2 className="text-2xl font-bold text-slate-800 mb-4">{workOrder.title}</h2>
             <p className="text-slate-600 mb-6">{workOrder.description || 'No description provided'}</p>
-            
+
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-semibold text-slate-500 mb-1">Order Number</h3>
                 <p className="font-medium">{workOrder.order_number}</p>
               </div>
-              
+
               <div>
                 <h3 className="text-sm font-semibold text-slate-500 mb-1">Status</h3>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(workOrder.status)}`}>
                   {workOrder.status}
                 </span>
               </div>
-              
+
               <div>
                 <h3 className="text-sm font-semibold text-slate-500 mb-1">Priority</h3>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityClass(workOrder.priority)}`}>
                   {workOrder.priority}
                 </span>
               </div>
-              
+
               <div>
                 <h3 className="text-sm font-semibold text-slate-500 mb-1">Created Date</h3>
                 <p>{new Date(workOrder.created_at).toLocaleDateString()}</p>
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-4">
             {client && (
               <div className="flex items-start gap-3">
@@ -254,7 +297,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
                 </div>
               </div>
             )}
-            
+
             {technicians.length > 0 && (
               <div className="flex items-start gap-3">
                 <User className="w-5 h-5 text-slate-500 mt-0.5" />
@@ -270,7 +313,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
                 </div>
               </div>
             )}
-            
+
             {vehicle && (
               <div className="flex items-start gap-3">
                 <Car className="w-5 h-5 text-slate-500 mt-0.5" />
@@ -281,8 +324,9 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
                 </div>
               </div>
             )}
-            
-            {workOrder.quoted_price && (
+
+            {/* Hide quoted price for employees */}
+            {workOrder.quoted_price && !isEmployee() && (
               <div className="flex items-start gap-3">
                 <DollarSign className="w-5 h-5 text-slate-500 mt-0.5" />
                 <div>
@@ -291,7 +335,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
                 </div>
               </div>
             )}
-            
+
             {/* SLA Information */}
             {workOrder.sla_hours && (
               <div className="flex items-start gap-3">
@@ -302,7 +346,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
                 </div>
               </div>
             )}
-            
+
             {/* Promise Date with Deadline Highlighting */}
             {workOrder.promise_date && (
               <div className={`flex items-start gap-3 ${isDeadlineApproaching(workOrder.promise_date, workOrder.status) ? 'bg-red-50 p-3 rounded-lg' : ''}`}>
@@ -337,19 +381,19 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
             {workOrder.attachments.map((attachment, index) => {
               // Normalize the attachment URL to ensure it's displayable
               let displayUrl = constructAttachmentUrl(attachment);
-              
+
               // Debug: Log the attachment processing
               // console.log('Processing attachment:', attachment);
               // console.log('Constructed display URL:', displayUrl);
-              
+
               // Check if it's an image file
               const isImage = displayUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-              
+
               return (
                 <div key={index} className="border rounded-lg overflow-hidden">
                   {isImage ? (
-                    <img 
-                      src={displayUrl} 
+                    <img
+                      src={displayUrl}
                       alt={`Attachment ${index + 1}`}
                       className="w-full h-32 object-cover"
                       onError={(e) => {
@@ -369,9 +413,9 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
                     <p className="text-xs text-slate-600 truncate">
                       Attachment {index + 1}
                     </p>
-                    <a 
-                      href={displayUrl} 
-                      target="_blank" 
+                    <a
+                      href={displayUrl}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-blue-600 hover:underline"
                     >
@@ -387,12 +431,13 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
 
       {/* Status Updater - For users with edit permissions or assigned employees */}
       {canUpdateWorkOrderStatus() && (
-        <StatusUpdater 
-          workOrderId={workOrderId} 
-          companyId={companyId} 
+        <StatusUpdater
+          workOrderId={workOrderId}
+          companyId={companyId}
           currentStatus={workOrder.status}
           onStatusUpdate={handleStatusUpdate}
           user={user}
+          isEmployee={isEmployee()}
         />
       )}
 
@@ -403,10 +448,10 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
 
       {/* Invoice Generator - Only for users with full edit permissions */}
       {canFullEdit() && (
-        <InvoiceGenerator 
-          workOrderId={workOrderId} 
-          companyId={companyId} 
-          quotedPrice={workOrder.quoted_price} 
+        <InvoiceGenerator
+          workOrderId={workOrderId}
+          companyId={companyId}
+          quotedPrice={workOrder.quoted_price}
         />
       )}
 
@@ -425,44 +470,52 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
                     </span>
                   )}
                 </div>
-                
+
                 {product.description && (
                   <p className="text-sm text-slate-600 mb-2">{product.description}</p>
                 )}
-                
+
                 <div className="grid grid-cols-2 gap-4 mt-3">
                   <div>
                     <p className="text-xs text-slate-500">Quantity</p>
                     <p className="font-medium">{product.quantity || 1}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Price (AED)</p>
-                    <p className="font-medium">{product.price ? product.price.toFixed(2) : '0.00'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Total</p>
-                    <p className="font-medium">
-                      AED {((product.quantity || 1) * (product.price || 0)).toFixed(2)}
-                    </p>
-                  </div>
+                  {/* Hide price information for employees */}
+                  {!isEmployee() && (
+                    <>
+                      <div>
+                        <p className="text-xs text-slate-500">Price (AED)</p>
+                        <p className="font-medium">{product.price ? product.price.toFixed(2) : '0.00'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Total</p>
+                        <p className="font-medium">
+                          AED {((product.quantity || 1) * (product.price || 0)).toFixed(2)}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
-            
-            <div className="pt-4 border-t border-slate-200">
-              <div className="flex justify-between">
-                <span className="font-medium">Total Quoted Price:</span>
-                <span className="font-bold text-lg">AED {workOrder.quoted_price ? workOrder.quoted_price.toFixed(2) : '0.00'}</span>
+
+            {/* Hide total quoted price for employees */}
+            {!isEmployee() && (
+              <div className="pt-4 border-t border-slate-200">
+                <div className="flex justify-between">
+                  <span className="font-medium">Total Quoted Price:</span>
+                  <span className="font-bold text-lg">AED {workOrder.quoted_price ? workOrder.quoted_price.toFixed(2) : '0.00'}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </Card>
       )}
 
       {/* Comments Section - Clients can view but not add comments */}
-      <CommentsSection 
-        workOrderId={workOrderId} 
-        companyId={companyId} 
+      <CommentsSection
+        workOrderId={workOrderId}
+        companyId={companyId}
         user={user}
       />
     </div>

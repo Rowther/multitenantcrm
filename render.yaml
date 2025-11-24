@@ -15,3 +15,9 @@ services:
         value: erp_crm_database
       - key: JWT_SECRET
         value: your-super-secret-jwt-key-change-in-production-2024
+      - key: RENDER_DISK_PATH
+        value: /opt/render/project/uploads
+    disks:
+      - name: uploads
+        mountPath: /opt/render/project/uploads
+        sizeGB: 10

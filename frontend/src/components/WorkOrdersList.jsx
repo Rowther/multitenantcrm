@@ -3,12 +3,12 @@ import { Button } from './ui/button';
 import { Eye, Edit, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import WorkOrderModal from './WorkOrderModal';
 
-const WorkOrdersList = ({ 
-  workOrders, 
-  companyId, 
-  onRefresh, 
-  isEmployee = false, 
-  onEditWorkOrder, 
+const WorkOrdersList = ({
+  workOrders,
+  companyId,
+  onRefresh,
+  isEmployee = false,
+  onEditWorkOrder,
   onViewWorkOrder,
   onSelectWorkOrder,
   pagination,
@@ -101,14 +101,14 @@ const WorkOrdersList = ({
   const isDeadlineApproaching = (promiseDate, status) => {
     // Only highlight if status is not completed
     if (status === 'COMPLETED') return false;
-    
+
     if (!promiseDate) return false;
-    
+
     const deadline = new Date(promiseDate);
     const now = new Date();
     const timeDiff = deadline.getTime() - now.getTime();
     const daysDiff = timeDiff / (1000 * 3600 * 24);
-    
+
     // Highlight if deadline is within 2 days and not yet passed
     return daysDiff <= 2 && daysDiff >= 0;
   };
@@ -122,7 +122,8 @@ const WorkOrdersList = ({
 
   return (
     <div>
-      <div className="overflow-x-auto">
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full min-w-full">
           <thead>
             <tr className="border-b border-slate-200">
@@ -130,16 +131,16 @@ const WorkOrdersList = ({
               <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Title</th>
               <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
               <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Priority</th>
-              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 hidden md:table-cell">Created</th>
-              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 hidden md:table-cell">Promise Date</th>
+              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Created</th>
+              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Promise Date</th>
               <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
             </tr>
           </thead>
           <tbody>
             {workOrders.map((wo) => (
-              <tr 
-                key={wo.id} 
-                className={`border-b border-slate-100 hover:bg-slate-50 ${isDeadlineApproaching(wo.promise_date, wo.status) ? 'bg-red-50' : ''}`} 
+              <tr
+                key={wo.id}
+                className={`border-b border-slate-100 hover:bg-slate-50 ${isDeadlineApproaching(wo.promise_date, wo.status) ? 'bg-red-50' : ''}`}
                 data-testid={`workorder-row-${wo.id}`}
               >
                 <td className={`py-4 px-4 font-medium ${isDeadlineApproaching(wo.promise_date, wo.status) ? 'text-red-700' : 'text-slate-800'}`}>
@@ -155,61 +156,48 @@ const WorkOrdersList = ({
                     <p className={`font-semibold ${isDeadlineApproaching(wo.promise_date, wo.status) ? 'text-red-700' : 'text-slate-800'}`}>
                       {wo.title}
                     </p>
-                    <p className="text-xs text-slate-500 md:hidden">{wo.description?.slice(0, 30)}...</p>
-                    <p className="text-xs text-slate-500 hidden md:block">{wo.description?.slice(0, 50)}...</p>
+                    <p className="text-xs text-slate-500">{wo.description?.slice(0, 50)}...</p>
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex flex-col gap-1">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(wo.status)}`}>
-                      {getStatusText(wo.status)}
-                    </span>
-                    {isDeadlineApproaching(wo.promise_date, wo.status) && (
-                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full md:hidden">
-                        Urgent: Complete Soon!
-                      </span>
-                    )}
-                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(wo.status)}`}>
+                    {getStatusText(wo.status)}
+                  </span>
                 </td>
                 <td className="py-4 px-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityClass(wo.priority)}`}>
                     {getPriorityText(wo.priority)}
                   </span>
                 </td>
-                <td className="py-4 px-4 text-slate-700 text-sm hidden md:table-cell">
+                <td className="py-4 px-4 text-slate-700 text-sm">
                   {new Date(wo.created_at).toLocaleDateString()}
                 </td>
-                <td className="py-4 px-4 text-slate-700 text-sm hidden md:table-cell">
+                <td className="py-4 px-4 text-slate-700 text-sm">
                   {wo.promise_date ? new Date(wo.promise_date).toLocaleDateString() : 'N/A'}
                   {isDeadlineApproaching(wo.promise_date, wo.status) && (
-                    <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full hidden md:inline">
+                    <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
                       Urgent: Complete Soon!
                     </span>
                   )}
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex flex-wrap gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        // console.log('Eye button clicked directly with work order:', wo);
-                        handleViewClick(wo);
-                      }}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewClick(wo)}
                       data-testid={`view-workorder-${wo.id}`}
                     >
                       <Eye className="w-4 h-4" />
-                      <span className="sr-only">View</span>
                     </Button>
                     {!isEmployee && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleEditClick(wo)}
                         data-testid={`edit-workorder-${wo.id}`}
                       >
                         <Edit className="w-4 h-4" />
-                        <span className="sr-only">Edit</span>
                       </Button>
                     )}
                   </div>
@@ -218,6 +206,93 @@ const WorkOrdersList = ({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-4">
+        {workOrders.map((wo) => (
+          <div
+            key={wo.id}
+            className={`border rounded-lg p-4 ${isDeadlineApproaching(wo.promise_date, wo.status) ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`}
+            data-testid={`workorder-card-${wo.id}`}
+          >
+            {/* Order Number & Status */}
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <p className="text-xs text-slate-500">Order #</p>
+                <p className={`font-bold ${isDeadlineApproaching(wo.promise_date, wo.status) ? 'text-red-700' : 'text-slate-800'}`}>
+                  {wo.order_number}
+                </p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(wo.status)}`}>
+                {getStatusText(wo.status)}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h3 className={`font-semibold mb-2 ${isDeadlineApproaching(wo.promise_date, wo.status) ? 'text-red-700' : 'text-slate-800'}`}>
+              {wo.title}
+            </h3>
+
+            {/* Description */}
+            {wo.description && (
+              <p className="text-sm text-slate-600 mb-3">{wo.description.slice(0, 80)}...</p>
+            )}
+
+            {/* Priority & Dates */}
+            <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Priority</p>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityClass(wo.priority)}`}>
+                  {getPriorityText(wo.priority)}
+                </span>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Created</p>
+                <p className="text-slate-700">{new Date(wo.created_at).toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            {/* Promise Date */}
+            {wo.promise_date && (
+              <div className="mb-3">
+                <p className="text-xs text-slate-500 mb-1">Promise Date</p>
+                <p className={`text-sm ${isDeadlineApproaching(wo.promise_date, wo.status) ? 'text-red-700 font-semibold' : 'text-slate-700'}`}>
+                  {new Date(wo.promise_date).toLocaleDateString()}
+                  {isDeadlineApproaching(wo.promise_date, wo.status) && (
+                    <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                      Urgent!
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleViewClick(wo)}
+                data-testid={`view-workorder-${wo.id}`}
+                className="w-12 h-12 p-0 flex items-center justify-center"
+              >
+                <Eye className="w-5 h-5" />
+              </Button>
+              {!isEmployee && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditClick(wo)}
+                  data-testid={`edit-workorder-${wo.id}`}
+                  className="w-12 h-12 p-0 flex items-center justify-center"
+                >
+                  <Edit className="w-5 h-5" />
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Pagination Controls */}

@@ -1,6 +1,7 @@
 {
   "short_name": "Enterprise Hub",
-  "name": "Enterprise Hub - Multi-Tenant ERP & CRM",
+  "name": "Enterprise Hub - Multi-Tenant CRM",
+  "description": "Manage work orders, clients, and employees across multiple companies",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,16 +11,19 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#3b82f6",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary"
 }

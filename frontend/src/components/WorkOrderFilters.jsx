@@ -4,8 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from './ui/button';
 import { Search, X } from 'lucide-react';
 
-const WorkOrderFilters = ({ 
-  onFilterChange, 
+const WorkOrderFilters = ({
+  onFilterChange,
   companyId,
   clients = [],
   employees = []
@@ -17,6 +17,15 @@ const WorkOrderFilters = ({
     clientId: 'all',
     assignedTo: 'all'
   });
+
+  // Debounce search to reduce API calls (300ms delay)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      onFilterChange(filters);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [filters.search]);
 
   const statusOptions = [
     { value: 'all', label: 'All Statuses' },
@@ -39,7 +48,10 @@ const WorkOrderFilters = ({
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
-    onFilterChange(newFilters);
+    // For non-search filters, trigger immediately
+    if (key !== 'search') {
+      onFilterChange(newFilters);
+    }
   };
 
   const clearFilters = () => {
@@ -139,8 +151,8 @@ const WorkOrderFilters = ({
       {/* Clear Filters Button */}
       {hasActiveFilters && (
         <div className="mt-4 flex justify-end">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={clearFilters}
             className="flex items-center gap-2"
           >
