@@ -1,6 +1,6 @@
 {
-  "short_name": "Enterprise Hub",
-  "name": "Enterprise Hub - Multi-Tenant CRM",
+  "short_name": "DataStream",
+  "name": "DataStream - Multi-Tenant CRM",
   "description": "Manage work orders, clients, and employees across multiple companies",
   "icons": [
     {

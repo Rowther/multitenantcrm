@@ -58,7 +58,7 @@ const Login = ({ onLogin }) => {
 
             {/* Title */}
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-slate-800 mb-2" style={{fontFamily: 'Space Grotesk'}}>Enterprise Hub</h1>
+              <h1 className="text-3xl font-bold text-slate-800 mb-2" style={{ fontFamily: 'Space Grotesk' }}>DataStream</h1>
               <p className="text-slate-600 text-sm">Multi-Tenant ERP & CRM Platform</p>
             </div>
 

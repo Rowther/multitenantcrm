@@ -328,7 +328,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         {/* Header with Tabs - Responsive */}
         <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-800" style={{ fontFamily: 'Space Grotesk' }}>
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-slate-800 break-words" style={{ fontFamily: 'Space Grotesk' }}>
               {activeTab === 'dashboard' ? company?.name : 'Reports'}
             </h1>
             <p className="text-sm md:text-base text-slate-600 mt-1 md:mt-2">

@@ -164,7 +164,7 @@ const DashboardLayout = ({ user, onLogout, children }) => {
                   <Building2 className="w-4 h-4 md:w-5 md:h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="font-bold text-sm md:text-base text-slate-800" style={{ fontFamily: 'Space Grotesk' }}>Enterprise Hub</h2>
+                  <h2 className="font-bold text-sm md:text-base text-slate-800" style={{ fontFamily: 'Space Grotesk' }}>DataStream</h2>
                   <p className="text-xs text-slate-500">{user.role}</p>
                 </div>
               </div>
