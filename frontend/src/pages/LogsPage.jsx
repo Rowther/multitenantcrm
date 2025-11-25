@@ -8,6 +8,14 @@ import { Calendar, User, FileText, Users, Briefcase, MessageCircle, Search, Filt
 import { format } from 'date-fns';
 
 const LogsPage = ({ user, onLogout }) => {
+  // Enable smooth zooming
+  useEffect(() => {
+    document.body.style.touchAction = 'manipulation';
+    return () => {
+      document.body.style.touchAction = '';
+    };
+  }, []);
+
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
@@ -49,7 +57,7 @@ const LogsPage = ({ user, onLogout }) => {
     try {
       setLoading(true);
       const params = {};
-      
+
       // Format dates properly for the backend
       if (filters.startDate) {
         // Convert to ISO format
@@ -65,7 +73,7 @@ const LogsPage = ({ user, onLogout }) => {
       if (filters.userId !== 'all') params.user_id = filters.userId;
       if (filters.action !== 'all') params.action = filters.action;
       if (filters.resourceType !== 'all') params.resource_type = filters.resourceType;
-      
+
       const response = await axios.get(`${API}/superadmin/logs`, { params });
       setLogs(response.data.logs);
     } catch (error) {
@@ -175,7 +183,7 @@ const LogsPage = ({ user, onLogout }) => {
         log.resource_type.toLowerCase().includes(term)
       );
     }
-    
+
     return true;
   });
 
@@ -191,23 +199,25 @@ const LogsPage = ({ user, onLogout }) => {
 
   return (
     <DashboardLayout user={user} onLogout={onLogout}>
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-slate-800">Activity Logs</h1>
-          <Button onClick={fetchLogs} variant="outline">
+      <div className="p-4 sm:p-6 space-y-6">
+        {/* Header - Mobile Responsive */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">Activity Logs</h1>
+          <Button onClick={fetchLogs} variant="outline" className="w-full sm:w-auto">
             Refresh
           </Button>
         </div>
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           {/* Filters Section */}
           <div className="mb-6 p-4 bg-slate-50 rounded-lg">
             <div className="flex items-center gap-2 mb-4">
               <Filter className="w-5 h-5 text-slate-600" />
               <h3 className="font-medium text-slate-800">Filters</h3>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            {/* Mobile Responsive Filter Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
                 <div className="relative">
@@ -228,7 +238,7 @@ const LogsPage = ({ user, onLogout }) => {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
                 <input
@@ -238,7 +248,7 @@ const LogsPage = ({ user, onLogout }) => {
                   onChange={(e) => handleFilterChange('startDate', e.target.value)}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
                 <input
@@ -248,7 +258,7 @@ const LogsPage = ({ user, onLogout }) => {
                   onChange={(e) => handleFilterChange('endDate', e.target.value)}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">User</label>
                 <select
@@ -262,7 +272,7 @@ const LogsPage = ({ user, onLogout }) => {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Action</label>
                 <select
@@ -277,7 +287,7 @@ const LogsPage = ({ user, onLogout }) => {
                   <option value="ADD_COMMENT">Add Comment</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Resource Type</label>
                 <select
@@ -293,97 +303,82 @@ const LogsPage = ({ user, onLogout }) => {
                 </select>
               </div>
             </div>
-            
-            <div className="flex gap-2 mt-4">
-              <Button onClick={handleApplyFilters}>
+
+            {/* Filter Buttons - Mobile Responsive */}
+            <div className="flex flex-col sm:flex-row gap-2 mt-4">
+              <Button onClick={handleApplyFilters} className="w-full sm:w-auto">
                 Apply Filters
               </Button>
-              <Button variant="outline" onClick={handleClearFilters}>
+              <Button variant="outline" onClick={handleClearFilters} className="w-full sm:w-auto">
                 Clear Filters
               </Button>
             </div>
           </div>
 
-          {/* Results Section */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Timestamp</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">User</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Action</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Resource</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="text-center py-8 text-slate-500">
-                      No logs found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredLogs.map((log) => (
-                    <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-slate-500" />
-                          <span className="text-slate-700">
-                            {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm')}
-                          </span>
+          {/* Logs List */}
+          <div className="space-y-4">
+            {filteredLogs.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg border border-slate-200 text-slate-500">
+                No logs found
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:gap-4">
+                {filteredLogs.map((log) => (
+                  <div key={log.id} className="bg-white p-3 sm:p-4 rounded-lg border border-slate-200 hover:shadow-sm transition-shadow">
+                    <div className="flex flex-col gap-3 sm:gap-0 sm:flex-row sm:items-center sm:justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${getActionColor(log.action)}`}>
+                          {getActionIcon(log.action)}
                         </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-slate-500" />
-                          <span className="font-medium">{log.user_name}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className={`p-2 rounded-full ${getActionColor(log.action)}`}>
-                            {getActionIcon(log.action)}
-                          </div>
-                          <span className="font-medium">{getActionLabel(log.action)}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
                         <div>
-                          <div className="font-medium text-slate-800">{log.resource_type}</div>
-                          <div className="text-sm text-slate-500">{log.resource_id}</div>
+                          <span className="font-semibold text-slate-800 block text-sm sm:text-base">{getActionLabel(log.action)}</span>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                            <Calendar className="w-3 h-3" />
+                            <span>{format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm')}</span>
+                          </div>
                         </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="text-sm">
-                          {log.details.title && (
-                            <div className="font-medium">{log.details.title}</div>
-                          )}
-                          {log.details.name && (
-                            <div className="font-medium">{log.details.name}</div>
-                          )}
-                          {log.details.employee_name && (
-                            <div className="font-medium">{log.details.employee_name}</div>
-                          )}
-                          {log.details.work_order_title && (
-                            <div className="font-medium">{log.details.work_order_title}</div>
-                          )}
-                          {log.details.comment_preview && (
-                            <div className="text-slate-600 italic">"{log.details.comment_preview}"</div>
-                          )}
-                          {log.details.company_id && (
-                            <div className="text-slate-500">Company: {log.details.company_id}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-1 bg-slate-100 rounded-full text-xs font-medium text-slate-600 border border-slate-200">
+                          {log.resource_type}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="sm:pl-[3.25rem]">
+                      <div className="text-sm mb-3">
+                        <span className="text-slate-500">User: </span>
+                        <span className="font-medium text-slate-700">{log.user_name}</span>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-md border border-slate-100 text-sm">
+                        {log.details.title && (
+                          <div className="font-medium text-slate-900 mb-1">{log.details.title}</div>
+                        )}
+                        {log.details.name && (
+                          <div className="font-medium text-slate-900 mb-1">{log.details.name}</div>
+                        )}
+                        {log.details.content && (
+                          <div className="text-slate-600 italic mb-1">"{log.details.content}"</div>
+                        )}
+                        {log.details.comment_preview && (
+                          <div className="text-slate-600 italic mb-1">"{log.details.comment_preview}"</div>
+                        )}
+
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500 border-t border-slate-200 pt-2">
+                          {log.details.company_name && (
+                            <span>Company: <span className="font-medium text-slate-700">{log.details.company_name}</span></span>
                           )}
                           {log.details.status && (
-                            <div className="text-slate-500">Status: {log.details.status}</div>
+                            <span>Status: <span className="font-medium text-slate-700">{log.details.status}</span></span>
                           )}
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Card>
       </div>

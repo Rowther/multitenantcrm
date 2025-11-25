@@ -984,11 +984,15 @@ async def get_employees(company_id: str, current_user: dict = Depends(get_curren
     # Get employees
     employees = await db.employees.find({"company_id": company_id}, {"_id": 0}).to_list(1000)
     
+    # Batch fetch user details
+    user_ids = [emp['user_id'] for emp in employees if 'user_id' in emp]
+    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(user_ids) + 1)
+    user_map = {u['id']: u for u in users}
+    
     # Enrich employees with user details
     enriched_employees = []
     for employee in employees:
-        # Get user details
-        user = await db.users.find_one({"id": employee['user_id']}, {"_id": 0, "password_hash": 0})
+        user = user_map.get(employee.get('user_id'))
         if user:
             # Merge user details into employee object
             enriched_employee = {**employee, "user": user}
@@ -2148,6 +2152,8 @@ async def get_profit_loss_details(
     company_id: str, 
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
     current_user: dict = Depends(get_current_user)
 ):
     if current_user['role'] != 'SUPERADMIN' and current_user['company_id'] != company_id:
@@ -2167,9 +2173,12 @@ async def get_profit_loss_details(
         invoice_query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
         expense_query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
     
-    # OPTIMIZATION: Batch fetch all data in parallel (3 queries instead of N+3)
+    # Count total work orders for pagination
+    total_count = await db.work_orders.count_documents(query)
+    
+    # OPTIMIZATION: Batch fetch paginated work orders and related data in parallel
     work_orders, invoices, expenses, clients = await asyncio.gather(
-        db.work_orders.find(query, {"_id": 0}).to_list(10000),
+        db.work_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit),
         db.invoices.find(invoice_query, {"_id": 0}).to_list(10000),
         db.expenses.find(expense_query, {"_id": 0}).to_list(10000),
         db.clients.find({"company_id": company_id}, {"_id": 0, "id": 1, "name": 1}).to_list(10000)
@@ -2219,10 +2228,17 @@ async def get_profit_loss_details(
             "quoted_price": wo.get('quoted_price', 0),
             "total_expenses": total_expenses,
             "total_revenue": total_revenue,
-            "profit_loss": profit_loss
+            "profit_loss": profit_loss,
+            "created_at": wo.get('created_at', '')
         })
     
-    return {"details": details}
+    return {
+        "details": details,
+        "total": total_count,
+        "skip": skip,
+        "limit": limit
+    }
+
 
 
 
@@ -2231,21 +2247,37 @@ async def get_companies_summary(current_user: dict = Depends(get_current_user)):
     if current_user['role'] != 'SUPERADMIN':
         raise HTTPException(status_code=403, detail="Only SuperAdmin can access this report")
     
-    companies = await db.companies.find({}, {"_id": 0}).to_list(100)
+    companies = await db.companies.find({}, {"_id": 0}).to_list(1000)
+    
+    # Batch fetch work order counts
+    # Group by company_id and count
+    pipeline_wo = [
+        {"$group": {"_id": "$company_id", "count": {"$sum": 1}}}
+    ]
+    wo_counts_cursor = db.work_orders.aggregate(pipeline_wo)
+    wo_counts = {doc["_id"]: doc["count"] for doc in await wo_counts_cursor.to_list(1000)}
+    
+    # Batch fetch revenue
+    # Group by company_id and sum total_amount for ISSUED/PAID invoices
+    pipeline_inv = [
+        {"$match": {"status": {"$in": ["ISSUED", "PAID"]}}},
+        {"$group": {"_id": "$company_id", "total_revenue": {"$sum": "$total_amount"}}}
+    ]
+    revenue_cursor = db.invoices.aggregate(pipeline_inv)
+    revenues = {doc["_id"]: doc["total_revenue"] for doc in await revenue_cursor.to_list(1000)}
+    
     summary = []
     
     for company in companies:
         company_id = company['id']
-        work_orders = await db.work_orders.count_documents({"company_id": company_id})
-        invoices = await db.invoices.find({"company_id": company_id}, {"_id": 0}).to_list(10000)
-        # Include both issued and paid invoices in revenue calculation
-        revenue = sum(inv['total_amount'] for inv in invoices if inv['status'] in ['ISSUED', 'PAID'])
+        work_orders_count = wo_counts.get(company_id, 0)
+        revenue = revenues.get(company_id, 0)
         
         summary.append({
             "company_id": company_id,
             "company_name": company['name'],
             "industry": company['industry'],
-            "total_work_orders": work_orders,
+            "total_work_orders": work_orders_count,
             "total_revenue": revenue
         })
     
@@ -2256,108 +2288,147 @@ async def get_companies_summary(current_user: dict = Depends(get_current_user)):
 async def get_all_workorders_profit(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
     current_user: dict = Depends(get_current_user)
 ):
     if current_user['role'] != 'SUPERADMIN':
         raise HTTPException(status_code=403, detail="Only SuperAdmin can access this report")
     
-    # Build query with date filters
-    query = {}
-    invoice_query = {}
-    expense_query = {}
-    
-    if from_date:
-        query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
-        invoice_query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
-        expense_query['created_at'] = {"$gte": from_date}  # pyright: ignore[reportArgumentType]
-    if to_date:
-        query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
-        invoice_query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
-        expense_query.setdefault('created_at', {})['$lte'] = to_date  # pyright: ignore[reportArgumentType, reportIndexIssue]
-    
-    # Get all companies
-    companies = await db.companies.find({}, {"_id": 0}).to_list(100)
-    
-    # Get all work orders across all companies with date filters
-    work_orders = await db.work_orders.find(query, {"_id": 0}).to_list(10000)
-    
-    # Get all invoices across all companies with date filters
-    invoices = await db.invoices.find(invoice_query, {"_id": 0}).to_list(10000)
-    
-    # Get all expenses across all companies with date filters
-    expenses = await db.expenses.find(expense_query, {"_id": 0}).to_list(10000)
-    
-    # Create mappings
-    work_order_expenses = {}
-    for expense in expenses:
-        wo_id = expense['work_order_id']
-        if wo_id not in work_order_expenses:
-            work_order_expenses[wo_id] = []
-        work_order_expenses[wo_id].append(expense)
-    
-    work_order_invoices = {}
-    for invoice in invoices:
-        wo_id = invoice['work_order_id']
-        if wo_id not in work_order_invoices:
-            work_order_invoices[wo_id] = []
-        work_order_invoices[wo_id].append(invoice)
-    
-    # Create company mapping for quick lookup
-    company_map = {company['id']: company for company in companies}
-    
-    # Prepare detailed report data
-    details = []
-    for wo in work_orders:
-        wo_id = wo['id']
-        company_id = wo['company_id']
-        wo_expenses = work_order_expenses.get(wo_id, [])
-        wo_invoices = work_order_invoices.get(wo_id, [])
+    # Build match stage for date filtering
+    match_stage = {}
+    if from_date or to_date:
+        date_query = {}
+        if from_date:
+            date_query["$gte"] = from_date
+        if to_date:
+            date_query["$lte"] = to_date
+        match_stage["created_at"] = date_query
+
+    # Count total matching records for pagination
+    count_pipeline = [
+        {"$match": match_stage} if match_stage else {"$match": {}},
+        {"$count": "total"}
+    ]
+    count_result = await db.work_orders.aggregate(count_pipeline).to_list(1)
+    total_count = count_result[0]["total"] if count_result else 0
+
+    pipeline = [
+        # 1. Match work orders based on date filters
+        {"$match": match_stage} if match_stage else {"$match": {}},
         
-        # Calculate totals
-        total_expenses = sum(exp['amount'] for exp in wo_expenses)
-        # Include both issued and paid invoices in revenue calculation
-        total_revenue = sum(inv['total_amount'] for inv in wo_invoices if inv['status'] in ['ISSUED', 'PAID'])
-        profit_loss = total_revenue - total_expenses
+        # 2. Sort by created_at descending (most recent first)
+        {"$sort": {"created_at": -1}},
         
-        # Get client information
-        client_name = "Unknown"
-        if wo.get('requested_by_client_id'):
-            client = await db.clients.find_one({
-                "id": wo['requested_by_client_id'], 
-                "company_id": company_id
-            }, {"_id": 0, "name": 1})
-            if client:
-                client_name = client['name']
+        # 3. Apply pagination
+        {"$skip": skip},
+        {"$limit": limit},
         
-        # Get technician information
-        assigned_technicians = wo.get('assigned_technicians', [])
-        technician_names = []
-        for tech_id in assigned_technicians:
-            tech_user = await db.users.find_one({"id": tech_id}, {"_id": 0, "display_name": 1})
-            if tech_user:
-                technician_names.append(tech_user.get('display_name', 'Unknown Technician'))
-            else:
-                technician_names.append('Unknown Technician')
+        # 4. Lookup company details (only name field needed)
+        {
+            "$lookup": {
+                "from": "companies",
+                "localField": "company_id",
+                "foreignField": "id",
+                "pipeline": [{"$project": {"name": 1, "id": 1}}],
+                "as": "company"
+            }
+        },
+        {"$unwind": {"path": "$company", "preserveNullAndEmptyArrays": True}},
         
-        # Get company name
-        company_name = company_map.get(company_id, {}).get('name', 'Unknown Company')
+        # 5. Lookup client details (only name field needed)
+        {
+            "$lookup": {
+                "from": "clients",
+                "localField": "requested_by_client_id",
+                "foreignField": "id",
+                "pipeline": [{"$project": {"name": 1, "id": 1}}],
+                "as": "client"
+            }
+        },
+        {"$unwind": {"path": "$client", "preserveNullAndEmptyArrays": True}},
         
-        details.append({
-            "work_order_id": wo_id,
-            "order_number": wo.get('order_number', ''),
-            "title": wo.get('title', ''),
-            "company_name": company_name,
-            "client_name": client_name,
-            "status": wo.get('status', ''),
-            "quoted_price": wo.get('quoted_price', 0),
-            "total_expenses": total_expenses,
-            "total_revenue": total_revenue,
-            "profit_loss": profit_loss,
-            "assigned_technicians": assigned_technicians,
-            "technician_names": technician_names
-        })
+        # 6. Lookup invoices for this work order (only needed fields)
+        {
+            "$lookup": {
+                "from": "invoices",
+                "localField": "id",
+                "foreignField": "work_order_id",
+                "pipeline": [{"$project": {"status": 1, "total_amount": 1}}],
+                "as": "invoices"
+            }
+        },
+        
+        # 7. Lookup expenses for this work order (only amount field needed)
+        {
+            "$lookup": {
+                "from": "expenses",
+                "localField": "id",
+                "foreignField": "work_order_id",
+                "pipeline": [{"$project": {"amount": 1}}],
+                "as": "expenses"
+            }
+        },
+        
+        # 8. Calculate totals
+        {
+            "$addFields": {
+                "total_revenue": {
+                    "$sum": {
+                        "$map": {
+                            "input": {
+                                "$filter": {
+                                    "input": "$invoices",
+                                    "as": "inv",
+                                    "cond": {"$in": ["$$inv.status", ["ISSUED", "PAID"]]}
+                                }
+                            },
+                            "as": "inv",
+                            "in": "$$inv.total_amount"
+                        }
+                    }
+                },
+                "total_expenses": {
+                    "$sum": "$expenses.amount"
+                }
+            }
+        },
+        
+        # 9. Calculate profit/loss
+        {
+            "$addFields": {
+                "profit_loss": {"$subtract": ["$total_revenue", "$total_expenses"]}
+            }
+        },
+        
+        # 10. Project final fields
+        {
+            "$project": {
+                "_id": 0,
+                "work_order_id": "$id",
+                "order_number": 1,
+                "title": 1,
+                "company_name": {"$ifNull": ["$company.name", "Unknown Company"]},
+                "client_name": {"$ifNull": ["$client.name", "Unknown"]},
+                "status": 1,
+                "quoted_price": {"$ifNull": ["$quoted_price", 0]},
+                "total_expenses": 1,
+                "total_revenue": 1,
+                "profit_loss": 1,
+                "created_at": 1
+            }
+        }
+    ]
     
-    return {"details": details}
+    # Execute aggregation
+    results = await db.work_orders.aggregate(pipeline).to_list(limit)
+            
+    return {
+        "details": results,
+        "total": total_count,
+        "skip": skip,
+        "limit": limit
+    }
 
 
 
@@ -2369,7 +2440,7 @@ async def get_all_workorders_profit(
 async def get_activity_logs(
     current_user: dict = Depends(get_current_user),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 50,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     user_id: Optional[str] = None,
@@ -2380,275 +2451,183 @@ async def get_activity_logs(
     if current_user['role'] != 'SUPERADMIN':
         raise HTTPException(status_code=403, detail="Only SuperAdmin can access logs")
     
-    # Build query filters
-    query = {}
-    
-    # Date range filter
-    if start_date or end_date:
+    # Helper function to build date query
+    def build_date_query():
+        if not (start_date or end_date):
+            return {}
         date_query = {}
         if start_date:
-            # Parse the date string properly
             try:
                 parsed_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
                 date_query["$gte"] = parsed_start.isoformat()
             except ValueError:
-                # If parsing fails, use the original string
                 date_query["$gte"] = start_date
         if end_date:
-            # Parse the date string properly
             try:
                 parsed_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
                 date_query["$lte"] = parsed_end.isoformat()
             except ValueError:
-                # If parsing fails, use the original string
                 date_query["$lte"] = end_date
-        if date_query:
-            query["created_at"] = date_query
+        return {"created_at": date_query} if date_query else {}
     
-    # User filter
-    if user_id:
-        query["created_by"] = user_id
+    # Build queries for each resource type
+    date_filter = build_date_query()
     
-    # Action filter
-    if action:
-        query["action"] = action
-    
-    # Resource type filter
-    if resource_type:
-        query["resource_type"] = resource_type
-    
-    # For now, we'll create a simple log system by querying the database for recent activities
-    # In a production system, you would want to implement a proper logging system
-    
-    logs = []
-    
-    # Get recent work orders with user details
-    wo_query = {}
-    if start_date or end_date:
-        date_query = {}
-        if start_date:
-            # Parse the date string properly
-            try:
-                parsed_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                date_query["$gte"] = parsed_start.isoformat()
-            except ValueError:
-                # If parsing fails, use the original string
-                date_query["$gte"] = start_date
-        if end_date:
-            # Parse the date string properly
-            try:
-                parsed_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                date_query["$lte"] = parsed_end.isoformat()
-            except ValueError:
-                # If parsing fails, use the original string
-                date_query["$lte"] = end_date
-        if date_query:
-            wo_query["created_at"] = date_query
+    wo_query = {**date_filter}
     if user_id:
         wo_query["created_by"] = user_id
     
-    work_orders = await db.work_orders.find(wo_query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit//4).to_list(limit//4)
+    client_query = {**date_filter}
+    if user_id:
+        client_query["created_by"] = user_id
+    
+    emp_query = {**date_filter}
+    if user_id:
+        emp_query["user_id"] = user_id
+    
+    comment_query = {**date_filter}
+    if user_id:
+        comment_query["user_id"] = user_id
+    
+    # Determine items per resource type based on filters
+    items_per_type = limit // 4 if not (action or resource_type) else limit
+    
+    # Parallelize all database queries for maximum performance
+    work_orders_task = db.work_orders.find(wo_query, {"_id": 0}).sort("created_at", -1).limit(items_per_type).to_list(items_per_type) if (not action or action == "CREATE_WORK_ORDER") and (not resource_type or resource_type == "WorkOrder") else asyncio.sleep(0, result=[])
+    
+    clients_task = db.clients.find(client_query, {"_id": 0}).sort("created_at", -1).limit(items_per_type).to_list(items_per_type) if (not action or action == "CREATE_CLIENT") and (not resource_type or resource_type == "Client") else asyncio.sleep(0, result=[])
+    
+    employees_task = db.employees.find(emp_query, {"_id": 0}).sort("created_at", -1).limit(items_per_type).to_list(items_per_type) if (not action or action == "CREATE_EMPLOYEE") and (not resource_type or resource_type == "Employee") else asyncio.sleep(0, result=[])
+    
+    comments_task = db.comments.find(comment_query, {"_id": 0}).sort("created_at", -1).limit(items_per_type).to_list(items_per_type) if (not action or action == "ADD_COMMENT") and (not resource_type or resource_type == "Comment") else asyncio.sleep(0, result=[])
+    
+    # Fetch all data in parallel
+    work_orders, clients, employees, comments = await asyncio.gather(
+        work_orders_task,
+        clients_task,
+        employees_task,
+        comments_task
+    )
+    
+    # Collect all unique user IDs
+    user_ids = set()
     for wo in work_orders:
-        # Get user details
-        user = await db.users.find_one({"id": wo.get("created_by", "")}, {"_id": 0, "display_name": 1, "email": 1})
-        user_name = user.get("display_name", user.get("email", "Unknown User")) if user else "Unknown User"
-        
-        # Apply action filter
-        if action and action != "CREATE_WORK_ORDER":
-            continue
-            
-        # Apply resource type filter
-        if resource_type and resource_type != "WorkOrder":
-            continue
-        
+        if wo.get("created_by"):
+            user_ids.add(wo["created_by"])
+    for client in clients:
+        if client.get("created_by"):
+            user_ids.add(client["created_by"])
+    for emp in employees:
+        if emp.get("user_id"):
+            user_ids.add(emp["user_id"])
+    for comment in comments:
+        if comment.get("user_id"):
+            user_ids.add(comment["user_id"])
+    
+    # Batch fetch users and companies in parallel
+    users_task = db.users.find(
+        {"id": {"$in": list(user_ids)}},
+        {"_id": 0, "id": 1, "display_name": 1, "email": 1}
+    ).to_list(len(user_ids) + 1) if user_ids else asyncio.sleep(0, result=[])
+    
+    companies_task = db.companies.find(
+        {},
+        {"_id": 0, "id": 1, "name": 1}
+    ).to_list(1000)
+    
+    users, companies = await asyncio.gather(users_task, companies_task)
+    
+    # Create lookup maps
+    user_map = {u['id']: u.get('display_name', u.get('email', 'Unknown User')) for u in users}
+    company_map = {c['id']: c['name'] for c in companies}
+    
+    # Build logs list
+    logs = []
+    
+    # Process Work Orders
+    for wo in work_orders:
         logs.append({
             "id": str(uuid.uuid4()),
             "timestamp": wo.get("created_at", ""),
             "user_id": wo.get("created_by", ""),
-            "user_name": user_name,
+            "user_name": user_map.get(wo.get("created_by"), "Unknown User"),
             "action": "CREATE_WORK_ORDER",
             "resource_type": "WorkOrder",
             "resource_id": wo.get("id", ""),
             "details": {
                 "title": wo.get("title", ""),
                 "company_id": wo.get("company_id", ""),
+                "company_name": company_map.get(wo.get("company_id"), wo.get("company_id", "")),
                 "status": wo.get("status", "")
             }
         })
     
-    # Get recent clients with user details
-    client_query = {}
-    if start_date or end_date:
-        date_query = {}
-        if start_date:
-            # Parse the date string properly
-            try:
-                parsed_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                date_query["$gte"] = parsed_start.isoformat()
-            except ValueError:
-                # If parsing fails, use the original string
-                date_query["$gte"] = start_date
-        if end_date:
-            # Parse the date string properly
-            try:
-                parsed_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                date_query["$lte"] = parsed_end.isoformat()
-            except ValueError:
-                # If parsing fails, use the original string
-                date_query["$lte"] = end_date
-        if date_query:
-            client_query["created_at"] = date_query
-    if user_id:
-        client_query["created_by"] = user_id
-    
-    clients = await db.clients.find(client_query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit//4).to_list(limit//4)
+    # Process Clients
     for client in clients:
-        # Get user details
-        user = await db.users.find_one({"id": client.get("created_by", "")}, {"_id": 0, "display_name": 1, "email": 1}) if "created_by" in client else None
-        user_name = user.get("display_name", user.get("email", "System")) if user else "System"
-        
-        # Apply action filter
-        if action and action != "CREATE_CLIENT":
-            continue
-            
-        # Apply resource type filter
-        if resource_type and resource_type != "Client":
-            continue
-        
         logs.append({
             "id": str(uuid.uuid4()),
             "timestamp": client.get("created_at", ""),
-            "user_id": client.get("created_by", "") if "created_by" in client else "system",
-            "user_name": user_name,
+            "user_id": client.get("created_by", "system"),
+            "user_name": user_map.get(client.get("created_by"), "System"),
             "action": "CREATE_CLIENT",
             "resource_type": "Client",
             "resource_id": client.get("id", ""),
             "details": {
                 "name": client.get("name", ""),
-                "company_id": client.get("company_id", "")
+                "company_id": client.get("company_id", ""),
+                "company_name": company_map.get(client.get("company_id"), client.get("company_id", ""))
             }
         })
     
-    # Get recent employees with user details
-    emp_query = {}
-    if start_date or end_date:
-        date_query = {}
-        if start_date:
-            # Parse the date string properly
-            try:
-                parsed_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                date_query["$gte"] = parsed_start.isoformat()
-            except ValueError:
-                # If parsing fails, use the original string
-                date_query["$gte"] = start_date
-        if end_date:
-            # Parse the date string properly
-            try:
-                parsed_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                date_query["$lte"] = parsed_end.isoformat()
-            except ValueError:
-                # If parsing fails, use the original string
-                date_query["$lte"] = end_date
-        if date_query:
-            emp_query["created_at"] = date_query
-    if user_id:
-        emp_query["created_by"] = user_id
-    
-    employees = await db.employees.find(emp_query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit//4).to_list(limit//4)
+    # Process Employees
     for emp in employees:
-        # Get user details for employee creator
-        creator_user = await db.users.find_one({"id": emp.get("created_by", "")}, {"_id": 0, "display_name": 1, "email": 1}) if "created_by" in emp else None
-        creator_name = creator_user.get("display_name", creator_user.get("email", "System")) if creator_user else "System"
-        
-        # Get user details for the employee themselves
-        employee_user = await db.users.find_one({"id": emp.get("user_id", "")}, {"_id": 0, "display_name": 1, "email": 1})
-        employee_name = employee_user.get("display_name", employee_user.get("email", "Unknown User")) if employee_user else "Unknown User"
-        
-        # Apply action filter
-        if action and action != "CREATE_EMPLOYEE":
-            continue
-            
-        # Apply resource type filter
-        if resource_type and resource_type != "Employee":
-            continue
-        
         logs.append({
             "id": str(uuid.uuid4()),
             "timestamp": emp.get("created_at", ""),
-            "user_id": emp.get("created_by", "") if "created_by" in emp else "system",
-            "user_name": creator_name,
+            "user_id": emp.get("user_id", ""),
+            "user_name": user_map.get(emp.get("user_id"), "Unknown User"),
             "action": "CREATE_EMPLOYEE",
             "resource_type": "Employee",
             "resource_id": emp.get("id", ""),
             "details": {
-                "employee_name": employee_name,
-                "employee_user_id": emp.get("user_id", ""),
-                "company_id": emp.get("company_id", "")
+                "position": emp.get("position", ""),
+                "company_id": emp.get("company_id", ""),
+                "company_name": company_map.get(emp.get("company_id"), emp.get("company_id", ""))
             }
         })
     
-    # Get recent comments with user details
-    comment_query = {}
-    if start_date or end_date:
-        date_query = {}
-        if start_date:
-            # Parse the date string properly
-            try:
-                parsed_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                date_query["$gte"] = parsed_start.isoformat()
-            except ValueError:
-                # If parsing fails, use the original string
-                date_query["$gte"] = start_date
-        if end_date:
-            # Parse the date string properly
-            try:
-                parsed_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                date_query["$lte"] = parsed_end.isoformat()
-            except ValueError:
-                # If parsing fails, use the original string
-                date_query["$lte"] = end_date
-        if date_query:
-            comment_query["created_at"] = date_query
-    if user_id:
-        comment_query["user_id"] = user_id
-    
-    comments = await db.comments.find(comment_query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit//4).to_list(limit//4)
+    # Process Comments
     for comment in comments:
-        # Get user details
-        user = await db.users.find_one({"id": comment.get("user_id", "")}, {"_id": 0, "display_name": 1, "email": 1})
-        user_name = user.get("display_name", user.get("email", "Unknown User")) if user else "Unknown User"
-        
-        # Get work order title for context
-        work_order = await db.work_orders.find_one({"id": comment.get("work_order_id", "")}, {"_id": 0, "title": 1})
-        work_order_title = work_order.get("title", "Unknown Work Order") if work_order else "Unknown Work Order"
-        
-        # Apply action filter
-        if action and action != "ADD_COMMENT":
-            continue
-            
-        # Apply resource type filter
-        if resource_type and resource_type != "Comment":
-            continue
-        
         logs.append({
             "id": str(uuid.uuid4()),
             "timestamp": comment.get("created_at", ""),
             "user_id": comment.get("user_id", ""),
-            "user_name": user_name,
+            "user_name": user_map.get(comment.get("user_id"), "Unknown User"),
             "action": "ADD_COMMENT",
             "resource_type": "Comment",
             "resource_id": comment.get("id", ""),
             "details": {
+                "content": comment.get("content", ""),
                 "work_order_id": comment.get("work_order_id", ""),
-                "work_order_title": work_order_title,
-                "comment_preview": comment.get("content", "")[:50] + "..." if len(comment.get("content", "")) > 50 else comment.get("content", "")
+                "company_id": comment.get("company_id", ""),
+                "company_name": company_map.get(comment.get("company_id"), comment.get("company_id", "")),
+                "comment_preview": comment.get("content", "")[:50] + ("..." if len(comment.get("content", "")) > 50 else "")
             }
         })
     
-    # Sort logs by timestamp
+    # Sort logs by timestamp (most recent first)
     logs.sort(key=lambda x: x["timestamp"], reverse=True)
     
-    return {"logs": logs[:limit]}
+    # Apply pagination
+    total_logs = len(logs)
+    paginated_logs = logs[skip:skip + limit]
+    
+    return {
+        "logs": paginated_logs,
+        "total": total_logs,
+        "skip": skip,
+        "limit": limit
+    }
 
 # Include router
 

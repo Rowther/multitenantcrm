@@ -150,7 +150,9 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
         {/* Companies Overview */}
         <Card className="p-4 sm:p-6">
           <h2 className="text-xl font-bold text-slate-800 mb-4" style={{ fontFamily: 'Space Grotesk' }}>Companies Overview</h2>
-          <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -209,6 +211,61 @@ const SuperAdminDashboard = ({ user, onLogout, onUpdateUser }) => {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {companies.map((company) => {
+              const companyData = summary?.companies.find(c => c.company_id === company.id);
+              const revenue = companyData ? parseFloat(companyData.total_revenue) || 0 : 0;
+              const workOrders = companyData ? parseInt(companyData.total_work_orders) || 0 : 0;
+
+              return (
+                <div key={company.id} className="bg-slate-50 rounded-lg p-4 border border-slate-100">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="font-semibold text-slate-800">{company.name}</h3>
+                      <p className="text-xs text-slate-500">{company.contact_email}</p>
+                    </div>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                      {company.industry}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-white p-2 rounded border border-slate-100">
+                      <p className="text-xs text-slate-500">Work Orders</p>
+                      <p className="font-semibold text-slate-800">{workOrders}</p>
+                    </div>
+                    <div className="bg-white p-2 rounded border border-slate-100">
+                      <p className="text-xs text-slate-500">Revenue</p>
+                      <p className="font-semibold text-green-600">{revenue.toFixed(0)} AED</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => navigate(`/companies/${company.id}`)}
+                    >
+                      Details
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedCompanyId(company.id);
+                        setShowWorkOrderModal(true);
+                      }}
+                    >
+                      New Order
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
 
