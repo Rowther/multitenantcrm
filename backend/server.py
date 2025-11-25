@@ -1846,6 +1846,107 @@ async def process_payment(company_id: str, payment_data: PaymentCreate, current_
     
     return {"message": "Payment processed successfully", "payment": payment}
 
+@api_router.get("/companies/{company_id}/workorders/{work_order_id}/payments")
+async def get_payment_history(company_id: str, work_order_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user['role'] not in ['SUPERADMIN', 'ADMIN']:
+        raise HTTPException(status_code=403, detail="Only Admins can view payment history")
+    
+    if current_user['role'] == 'ADMIN' and current_user['company_id'] != company_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Verify work order exists and belongs to the company
+    work_order = await db.work_orders.find_one({"id": work_order_id, "company_id": company_id})
+    if not work_order:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    
+    # Fetch all payments for this work order
+    payments = await db.payments.find(
+        {"work_order_id": work_order_id, "company_id": company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(1000)
+    
+    # Enrich payments with user information
+    for payment in payments:
+        user = await db.users.find_one(
+            {"id": payment.get("created_by")},
+            {"_id": 0, "display_name": 1, "email": 1}
+        )
+        if user:
+            payment['created_by_name'] = user.get('display_name', 'Unknown')
+            payment['created_by_email'] = user.get('email', '')
+    
+    return payments
+
+@api_router.get("/companies/{company_id}/pending-payments")
+async def get_pending_payments(company_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user['role'] not in ['SUPERADMIN', 'ADMIN']:
+        raise HTTPException(status_code=403, detail="Only Admins can view pending payments")
+    
+    if current_user['role'] == 'ADMIN' and current_user['company_id'] != company_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Use aggregation pipeline for optimal performance
+    pipeline = [
+        # Match work orders for this company with a quoted price
+        {
+            "$match": {
+                "company_id": company_id,
+                "quoted_price": {"$exists": True, "$ne": None, "$gt": 0}
+            }
+        },
+        # Group by client
+        {
+            "$group": {
+                "_id": "$requested_by_client_id",
+                "total_quoted": {"$sum": {"$ifNull": ["$quoted_price", 0]}},
+                "total_paid": {"$sum": {"$ifNull": ["$paid_amount", 0]}},
+                "work_order_count": {"$sum": 1}
+            }
+        },
+        # Calculate remaining balance
+        {
+            "$project": {
+                "client_id": "$_id",
+                "total_quoted": 1,
+                "total_paid": 1,
+                "remaining_balance": {"$subtract": ["$total_quoted", "$total_paid"]},
+                "work_order_count": 1,
+                "_id": 0
+            }
+        },
+        # Filter only clients with pending payments
+        {
+            "$match": {
+                "remaining_balance": {"$gt": 0}
+            }
+        },
+        # Sort by remaining balance (highest first)
+        {"$sort": {"remaining_balance": -1}}
+    ]
+    
+    results = await db.work_orders.aggregate(pipeline).to_list(1000)
+    
+    # Enrich with client information
+    pending_payments = []
+    for result in results:
+        client_id = result.get('client_id')
+        if client_id:
+            client = await db.clients.find_one(
+                {"id": client_id, "company_id": company_id},
+                {"_id": 0}
+            )
+            if client:
+                pending_payments.append({
+                    "client": client,
+                    "total_amount": result['total_quoted'],
+                    "paid_amount": result['total_paid'],
+                    "remaining_amount": result['remaining_balance'],
+                    "work_order_count": result['work_order_count'],
+                    "progress": (result['total_paid'] / result['total_quoted'] * 100) if result['total_quoted'] > 0 else 0
+                })
+    
+    return pending_payments
+
 # =======================
 # Preventive Maintenance (MSAM)
 # =======================

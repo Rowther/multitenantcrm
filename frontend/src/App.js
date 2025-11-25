@@ -18,6 +18,7 @@ import CompanyDetails from './pages/CompanyDetails';
 import WorkOrdersPage from './pages/WorkOrdersPage';
 import WorkOrderDetailsPage from './pages/WorkOrderDetailsPage';
 import ClientsPage from './pages/ClientsPage';
+import PendingPaymentsPage from './pages/PendingPaymentsPage';
 import EmployeesPage from './pages/EmployeesPage';
 import UsersPage from './pages/UsersPage'; // Add UsersPage import
 import LogsPage from './pages/LogsPage';
@@ -52,7 +53,7 @@ function App() {
       try {
         const response = await axios.get(`${API}/users/me`);
         setUser(response.data);
-        
+
         // If user is an admin, fetch their company details
         if (response.data.role === 'ADMIN' && response.data.company_id) {
           try {
@@ -73,10 +74,10 @@ function App() {
     // Fix: Make sure we're handling the token correctly
     const actualToken = token || userData.token;
     const actualUser = userData.user || userData;
-    
+
     localStorage.setItem('token', actualToken);
     setUser(actualUser);
-    
+
     // If user is an admin, fetch their company details
     if (actualUser.role === 'ADMIN' && actualUser.company_id) {
       axios.get(`${API}/companies/${actualUser.company_id}`)
@@ -106,7 +107,7 @@ function App() {
 
   const getDashboard = () => {
     if (!user) return <Navigate to="/login" />;
-    
+
     switch (user.role) {
       case 'SUPERADMIN':
         return <SuperAdminDashboard user={user} onLogout={handleLogout} />;
@@ -140,9 +141,9 @@ function App() {
     <div className="App">
       <HashRouter>
         <Routes>
-          <Route 
-            path="/login" 
-            element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />} 
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />}
           />
           <Route path="/" element={<ProtectedRoute><div>{getDashboard()}</div></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}><UsersPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
@@ -152,6 +153,7 @@ function App() {
           <Route path="/companies/:companyId/workorders/:workOrderId" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'EMPLOYEE', 'CLIENT']}><WorkOrderDetailsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
           <Route path="/work-orders" element={<ProtectedRoute allowedRoles={['ADMIN']}><WorkOrdersPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
           <Route path="/clients" element={<ProtectedRoute allowedRoles={['ADMIN']}><ClientsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+          <Route path="/pending-payments" element={<ProtectedRoute allowedRoles={['ADMIN']}><PendingPaymentsPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute allowedRoles={['ADMIN']}><EmployeesPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
           <Route path="/preventive-maintenance" element={<ProtectedRoute allowedRoles={['ADMIN']}><PreventiveMaintenancePage user={user} onLogout={handleLogout} /></ProtectedRoute>} />
           <Route path="/vehicles" element={<ProtectedRoute allowedRoles={['ADMIN']}><VehiclesPage user={user} onLogout={handleLogout} /></ProtectedRoute>} />

@@ -4,7 +4,7 @@ import { API } from '../App';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { X, User, FileText, DollarSign, CreditCard, Wallet, Search } from 'lucide-react';
+import { X, User, FileText, DollarSign, CreditCard, Wallet, Search, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ClientDetailsModal = ({ client, companyId, onClose }) => {
@@ -14,16 +14,18 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [referenceNumber, setReferenceNumber] = useState('');
-  const [processingPayment, setProcessingPayment] = useState({}); // Track which work orders are processing payments
+  const [processingPayment, setProcessingPayment] = useState({});
+  const [paymentHistory, setPaymentHistory] = useState({});
+  const [loadingHistory, setLoadingHistory] = useState({});
+  const [expandedHistory, setExpandedHistory] = useState({});
 
   useEffect(() => {
     fetchClientWorkOrders();
   }, [client.id, companyId]);
 
   useEffect(() => {
-    // Filter work orders based on search term
     if (searchTerm && Array.isArray(workOrders)) {
-      const filtered = workOrders.filter(wo => 
+      const filtered = workOrders.filter(wo =>
         wo.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         wo.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         wo.description?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -37,19 +39,24 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
   const fetchClientWorkOrders = async () => {
     try {
       setLoading(true);
-      // Fetch work orders for this client
       const response = await axios.get(`${API}/companies/${companyId}/workorders?client_id=${client.id}`);
-      
-      // Handle both old and new API response formats
+
       let workOrdersData;
       if (response.data.work_orders) {
         workOrdersData = response.data.work_orders;
       } else {
         workOrdersData = response.data;
       }
-      
+
       setWorkOrders(workOrdersData);
       setFilteredWorkOrders(workOrdersData);
+
+      // Auto-fetch payment history for work orders with payments
+      workOrdersData.forEach(wo => {
+        if (wo.paid_amount > 0) {
+          fetchPaymentHistory(wo.id);
+        }
+      });
     } catch (error) {
       toast.error('Failed to fetch client work orders');
     } finally {
@@ -58,36 +65,33 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
   };
 
   const handlePayment = async (workOrderId, amount) => {
-    // In a real implementation, this would process the payment
     try {
       setProcessingPayment(prev => ({ ...prev, [workOrderId]: true }));
-      
-      // Validate payment method and reference number
+
       if (paymentMethod === 'card' && !referenceNumber) {
         toast.error('Reference number is required for card payments');
         setProcessingPayment(prev => ({ ...prev, [workOrderId]: false }));
         return;
       }
-      
-      // Process payment through backend
+
       const response = await axios.post(`${API}/companies/${companyId}/payments`, {
         work_order_id: workOrderId,
         amount: parseFloat(amount),
         payment_method: paymentMethod,
         reference_number: paymentMethod === 'card' ? referenceNumber : null
       });
-      
+
       toast.success(response.data.message);
-      
-      // Clear reference number if it was used
+
       if (paymentMethod === 'card') {
         setReferenceNumber('');
       }
-      
-      // Refresh work orders to show updated payment status
+
       fetchClientWorkOrders();
+
+      // Refresh payment history after payment
+      fetchPaymentHistory(workOrderId);
     } catch (error) {
-      // console.error('Payment error:', error);
       if (error.response && error.response.data && error.response.data.detail) {
         toast.error(error.response.data.detail);
       } else {
@@ -96,6 +100,34 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
     } finally {
       setProcessingPayment(prev => ({ ...prev, [workOrderId]: false }));
     }
+  };
+
+  const fetchPaymentHistory = async (workOrderId) => {
+    try {
+      setLoadingHistory(prev => ({ ...prev, [workOrderId]: true }));
+      const response = await axios.get(`${API}/companies/${companyId}/workorders/${workOrderId}/payments`);
+      setPaymentHistory(prev => ({ ...prev, [workOrderId]: response.data }));
+    } catch (error) {
+      console.error('Failed to fetch payment history:', error);
+    } finally {
+      setLoadingHistory(prev => ({ ...prev, [workOrderId]: false }));
+    }
+  };
+
+  const togglePaymentHistory = (workOrderId) => {
+    const isExpanded = expandedHistory[workOrderId];
+    setExpandedHistory(prev => ({ ...prev, [workOrderId]: !isExpanded }));
+  };
+
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const getStatusClass = (status) => {
@@ -115,7 +147,7 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
     const paidAmount = workOrder.paid_amount || 0;
     const remainingAmount = quotedPrice - paidAmount;
     const progress = quotedPrice > 0 ? (paidAmount / quotedPrice) * 100 : 0;
-    
+
     return {
       quotedPrice,
       paidAmount,
@@ -129,7 +161,7 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex justify-between items-center">
-            <DialogTitle className="text-2xl font-bold" style={{fontFamily: 'Space Grotesk'}}>
+            <DialogTitle className="text-2xl font-bold" style={{ fontFamily: 'Space Grotesk' }}>
               Client Details
             </DialogTitle>
             <Button variant="ghost" onClick={onClose} className="p-2">
@@ -177,7 +209,7 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
               />
             </div>
           </div>
-          
+
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <div className="text-slate-500">Loading work orders...</div>
@@ -236,8 +268,8 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
                           <span className="text-sm font-medium text-slate-700">Progress</span>
                         </div>
                         <div className="w-full bg-slate-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full" 
+                          <div
+                            className="bg-blue-600 h-2 rounded-full"
                             style={{ width: `${paymentInfo.progress}%` }}
                           ></div>
                         </div>
@@ -286,7 +318,7 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
                             </div>
                           )}
                           <div className="flex items-end">
-                            <Button 
+                            <Button
                               onClick={() => {
                                 const amountInput = document.getElementById(`amount-${workOrder.id}`);
                                 const amount = amountInput ? parseFloat(amountInput.value) : paymentInfo.remainingAmount;
@@ -299,6 +331,75 @@ const ClientDetailsModal = ({ client, companyId, onClose }) => {
                             </Button>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Payment History */}
+                    {paymentInfo.paidAmount > 0 && (
+                      <div className="mt-4 pt-4 border-t border-slate-200">
+                        <button
+                          onClick={() => togglePaymentHistory(workOrder.id)}
+                          className="flex items-center justify-between w-full text-left hover:bg-slate-50 p-2 rounded transition-colors"
+                        >
+                          <h4 className="font-medium text-slate-800 flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            Payment History ({paymentHistory[workOrder.id]?.length || 0} payments)
+                          </h4>
+                          {expandedHistory[workOrder.id] ? (
+                            <ChevronUp className="w-5 h-5 text-slate-500" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-slate-500" />
+                          )}
+                        </button>
+
+                        {expandedHistory[workOrder.id] && (
+                          <div className="mt-3">
+                            {loadingHistory[workOrder.id] ? (
+                              <div className="text-center py-4 text-slate-500">Loading payment history...</div>
+                            ) : paymentHistory[workOrder.id]?.length > 0 ? (
+                              <div className="space-y-3">
+                                {paymentHistory[workOrder.id].map((payment, index) => (
+                                  <div key={payment.id || index} className="bg-slate-50 rounded-lg p-3 border-l-4 border-green-500">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <DollarSign className="w-4 h-4 text-green-600" />
+                                          <span className="font-bold text-green-600">AED {payment.amount.toFixed(2)}</span>
+                                        </div>
+                                        <div className="text-xs text-slate-600 flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          {formatDateTime(payment.created_at)}
+                                        </div>
+                                      </div>
+                                      <div className="text-sm">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          {payment.payment_method === 'card' ? (
+                                            <CreditCard className="w-4 h-4 text-slate-500" />
+                                          ) : (
+                                            <Wallet className="w-4 h-4 text-slate-500" />
+                                          )}
+                                          <span className="font-medium capitalize">{payment.payment_method}</span>
+                                        </div>
+                                        {payment.reference_number && (
+                                          <div className="text-xs text-slate-600">
+                                            Ref: {payment.reference_number}
+                                          </div>
+                                        )}
+                                        {payment.created_by_name && (
+                                          <div className="text-xs text-slate-500 mt-1">
+                                            By: {payment.created_by_name}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-slate-500">No payment history available</div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

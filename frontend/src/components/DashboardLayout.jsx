@@ -12,7 +12,8 @@ import {
   Car,
   Wrench,
   Calendar,
-  BarChart3
+  BarChart3,
+  DollarSign
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -89,6 +90,7 @@ const DashboardLayout = ({ user, onLogout, children }) => {
       { icon: FileText, label: 'Work Orders', path: '/work-orders' },
       { icon: Users, label: 'Users', path: '/users' },
       { icon: Users, label: 'Clients', path: '/clients' },
+      { icon: DollarSign, label: 'Pending Payments', path: '/pending-payments' },
       { icon: FileText, label: 'Reports', path: '/reports' }
     ],
     EMPLOYEE: [
