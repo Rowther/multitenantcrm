@@ -7,7 +7,7 @@
   <!-- Homepage -->
   <url>
     <loc>https://www.datastream.ae/</loc>
-    <lastmod>2025-01-24</lastmod>
+    <lastmod>2025-11-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -15,7 +15,7 @@
   <!-- Login Page -->
   <url>
     <loc>https://www.datastream.ae/#/login</loc>
-    <lastmod>2025-01-24</lastmod>
+    <lastmod>2025-11-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
