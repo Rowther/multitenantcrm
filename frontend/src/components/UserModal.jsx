@@ -7,7 +7,6 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
-import { X } from 'lucide-react';
 
 const UserModal = ({ onClose, onSuccess, companies, isSuperAdmin, companyId, clients }) => {
   const [formData, setFormData] = useState({
@@ -42,23 +41,15 @@ const UserModal = ({ onClose, onSuccess, companies, isSuperAdmin, companyId, cli
   };
 
   return (
-    <Dialog open={true}>
-      <DialogContent 
-        className="max-w-2xl" 
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="max-w-2xl"
         data-testid="user-modal"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold" style={{fontFamily: 'Space Grotesk'}}>Create New User</DialogTitle>
-          <button
-            type="button"
-            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </button>
+          <DialogTitle className="text-2xl font-bold" style={{ fontFamily: 'Space Grotesk' }}>Create New User</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
