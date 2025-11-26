@@ -1353,30 +1353,31 @@ async def get_work_orders(
     
     # Role-based filtering
     if current_user['role'] == 'EMPLOYEE':
-        # Employees see only work orders they're assigned to or approved orders
+        # Employees see only work orders they're assigned to
+        # We need to get the employee ID first, as it's different from user_id
+        employee = await db.employees.find_one({"user_id": current_user['id']})
+        
+        if not employee:
+            # If no employee record found, they can't be assigned to anything
+            return []
+            
+        employee_id = employee['id']
+        
         # But we also need to respect the assigned_to filter if provided
         if 'assigned_technicians' in query:
             # A specific technician filter was provided
-            # Check if it matches the current employee
-            if query['assigned_technicians'] == current_user['id']:
-                # Employee is requesting their own work orders, which is allowed
-                # We still need to include approved orders
-                query['$or'] = [  # pyright: ignore[reportArgumentType]
-                    {'assigned_technicians': current_user['id']},
-                    {'status': 'APPROVED'}
-                ]
-                # Remove the original assigned_technicians filter since we're replacing it
-                del query['assigned_technicians']
-            else:
+            # Check if it matches the current employee OR their user_id
+            # (Frontend sends user_id, so we need to allow that)
+            if query['assigned_technicians'] != employee_id and query['assigned_technicians'] != current_user['id']:
                 # Employee is trying to view another employee's work orders - not allowed
                 # Return no results
                 query['assigned_technicians'] = 'IMPOSSIBLE_VALUE_TO_RETURN_EMPTY_RESULTS'
+            else:
+                # If they asked for their own user_id or employee_id, ensure we filter by employee_id
+                query['assigned_technicians'] = employee_id
         else:
-            # No specific technician filter, apply standard role-based filtering
-            query['$or'] = [  # pyright: ignore[reportArgumentType]
-                {'assigned_technicians': current_user['id']},
-                {'status': 'APPROVED'}
-            ]
+            # No specific technician filter, default to showing only their assigned orders
+            query['assigned_technicians'] = employee_id
     elif current_user['role'] == 'CLIENT':
         # Clients see only their own work orders
         # But we also need to respect the client_id filter if provided
@@ -1469,8 +1470,17 @@ async def get_work_order(company_id: str, work_order_id: str, current_user: dict
     
     # Check visibility based on user role
     if current_user['role'] == 'EMPLOYEE':
-        # Employees can only see work orders assigned to them or approved work orders
-        if current_user['id'] not in work_order.get('assigned_technicians', []) and work_order.get('status') != 'APPROVED':
+        # Employees can only see work orders assigned to them
+        # Need to resolve employee ID first
+        employee = await db.employees.find_one({"user_id": current_user['id']})
+        if not employee:
+            raise HTTPException(status_code=403, detail="Access denied - Employee record not found")
+            
+        employee_id = employee['id']
+        
+        # Check if employee is assigned
+        if employee_id not in work_order.get('assigned_technicians', []):
+            print(f"DEBUG: Access Denied for User {current_user['id']} (Employee {employee_id}) on WO {work_order_id}. Assigned: {work_order.get('assigned_technicians', [])}")
             raise HTTPException(status_code=403, detail="Access denied")
     elif current_user['role'] == 'CLIENT':
         # Clients can only see their own work orders
