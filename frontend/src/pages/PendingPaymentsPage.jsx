@@ -217,37 +217,40 @@ const PendingPaymentsPage = ({ user, onLogout }) => {
                                         className="p-6 cursor-pointer hover:bg-slate-50 transition-colors"
                                         onClick={() => toggleClientExpand(payment.client.id)}
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-                                                <div className="md:col-span-2">
+                                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                            <div className="flex-1 w-full">
+                                                <div className="mb-4 md:mb-0">
                                                     <h3 className="text-lg font-bold text-slate-800">{payment.client.name}</h3>
                                                     <p className="text-sm text-slate-600">{payment.client.email || 'No email'}</p>
                                                     <p className="text-sm text-slate-600">{payment.client.phone || 'No phone'}</p>
                                                 </div>
 
-                                                <div className="text-center">
-                                                    <p className="text-sm text-slate-600">Work Orders</p>
-                                                    <p className="text-2xl font-bold text-slate-800">{payment.work_order_count || 0}</p>
-                                                </div>
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
 
-                                                <div className="text-center">
-                                                    <p className="text-sm text-slate-600">Total Amount</p>
-                                                    <p className="text-xl font-bold text-slate-800">AED {totalAmount.toFixed(2)}</p>
-                                                    <div className="flex items-center justify-center gap-2 mt-1">
-                                                        <span className="text-sm text-green-600 font-semibold">Paid: {paidAmount.toFixed(2)}</span>
-                                                        <span className="text-sm text-amber-600 font-semibold">Due: {remainingAmount.toFixed(2)}</span>
+                                                    <div className="text-center">
+                                                        <p className="text-sm text-slate-600">Work Orders</p>
+                                                        <p className="text-2xl font-bold text-slate-800">{payment.work_order_count || 0}</p>
                                                     </div>
-                                                </div>
 
-                                                <div className="text-center">
-                                                    <p className="text-sm text-slate-600 mb-2">Progress</p>
-                                                    <div className="w-full bg-slate-200 rounded-full h-3">
-                                                        <div
-                                                            className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-300"
-                                                            style={{ width: `${progress}%` }}
-                                                        ></div>
+                                                    <div className="text-center">
+                                                        <p className="text-sm text-slate-600">Total Amount</p>
+                                                        <p className="text-xl font-bold text-slate-800">AED {totalAmount.toFixed(2)}</p>
+                                                        <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 mt-1">
+                                                            <span className="text-sm text-green-600 font-semibold">Paid: {paidAmount.toFixed(2)}</span>
+                                                            <span className="text-sm text-amber-600 font-semibold">Due: {remainingAmount.toFixed(2)}</span>
+                                                        </div>
                                                     </div>
-                                                    <p className="text-sm font-semibold text-slate-700 mt-1">{progress}%</p>
+
+                                                    <div className="text-center col-span-2 md:col-span-1">
+                                                        <p className="text-sm text-slate-600 mb-2">Progress</p>
+                                                        <div className="w-full bg-slate-200 rounded-full h-3">
+                                                            <div
+                                                                className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-300"
+                                                                style={{ width: `${progress}%` }}
+                                                            ></div>
+                                                        </div>
+                                                        <p className="text-sm font-semibold text-slate-700 mt-1">{progress}%</p>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -277,7 +280,7 @@ const PendingPaymentsPage = ({ user, onLogout }) => {
                                                         return (
                                                             <div key={wo.id} className="bg-white rounded-lg p-5 shadow-sm border border-slate-200">
                                                                 {/* Work Order Header */}
-                                                                <div className="flex items-start justify-between mb-4">
+                                                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                                                                     <div className="flex items-center gap-3">
                                                                         <FileText className="w-5 h-5 text-slate-500" />
                                                                         <div>
@@ -285,18 +288,18 @@ const PendingPaymentsPage = ({ user, onLogout }) => {
                                                                             <p className="text-sm text-slate-600">#{wo.order_number}</p>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-3">
-                                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(wo.status)}`}>
+                                                                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusClass(wo.status)}`}>
                                                                             {wo.status.replace('_', ' ')}
                                                                         </span>
                                                                         {woRemaining > 0 && (
                                                                             <Button
                                                                                 size="sm"
                                                                                 onClick={() => togglePaymentForm(wo.id, woRemaining)}
-                                                                                className={showPaymentForm[wo.id] ? "bg-slate-200 text-slate-700 hover:bg-slate-300" : "bg-blue-600 hover:bg-blue-700"}
+                                                                                className={`flex-1 sm:flex-none ${showPaymentForm[wo.id] ? "bg-slate-200 text-slate-700 hover:bg-slate-300" : "bg-blue-600 hover:bg-blue-700"}`}
                                                                             >
                                                                                 {showPaymentForm[wo.id] ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4 mr-1" />}
-                                                                                {showPaymentForm[wo.id] ? 'Cancel' : 'Make Payment'}
+                                                                                <span className="whitespace-nowrap">{showPaymentForm[wo.id] ? 'Cancel' : 'Make Payment'}</span>
                                                                             </Button>
                                                                         )}
                                                                     </div>
@@ -309,27 +312,29 @@ const PendingPaymentsPage = ({ user, onLogout }) => {
                                                                             <DollarSign className="w-4 h-4 text-blue-600" />
                                                                             Record New Payment
                                                                         </h4>
-                                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                                                            <div>
-                                                                                <Label className="text-xs mb-1.5 block">Amount (AED)</Label>
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    value={paymentAmount}
-                                                                                    onChange={(e) => setPaymentAmount(e.target.value)}
-                                                                                    placeholder="0.00"
-                                                                                />
-                                                                            </div>
-                                                                            <div>
-                                                                                <Label className="text-xs mb-1.5 block">Payment Method</Label>
-                                                                                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                                                                                    <SelectTrigger>
-                                                                                        <SelectValue />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent>
-                                                                                        <SelectItem value="cash">Cash</SelectItem>
-                                                                                        <SelectItem value="card">Card</SelectItem>
-                                                                                    </SelectContent>
-                                                                                </Select>
+                                                                        <div className="space-y-4 mb-4">
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                                <div>
+                                                                                    <Label className="text-xs mb-1.5 block">Amount (AED)</Label>
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        value={paymentAmount}
+                                                                                        onChange={(e) => setPaymentAmount(e.target.value)}
+                                                                                        placeholder="0.00"
+                                                                                    />
+                                                                                </div>
+                                                                                <div>
+                                                                                    <Label className="text-xs mb-1.5 block">Payment Method</Label>
+                                                                                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                                                                                        <SelectTrigger>
+                                                                                            <SelectValue />
+                                                                                        </SelectTrigger>
+                                                                                        <SelectContent>
+                                                                                            <SelectItem value="cash">Cash</SelectItem>
+                                                                                            <SelectItem value="card">Card</SelectItem>
+                                                                                        </SelectContent>
+                                                                                    </Select>
+                                                                                </div>
                                                                             </div>
                                                                             {paymentMethod === 'card' && (
                                                                                 <div>
@@ -345,11 +350,11 @@ const PendingPaymentsPage = ({ user, onLogout }) => {
                                                                                 </div>
                                                                             )}
                                                                         </div>
-                                                                        <div className="flex justify-end">
+                                                                        <div className="flex justify-end w-full">
                                                                             <Button
                                                                                 onClick={() => handlePayment(wo.id, payment.client.id)}
                                                                                 disabled={processingPayment[wo.id]}
-                                                                                className="bg-green-600 hover:bg-green-700"
+                                                                                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
                                                                             >
                                                                                 {processingPayment[wo.id] ? 'Processing...' : 'Confirm Payment'}
                                                                             </Button>
@@ -358,7 +363,7 @@ const PendingPaymentsPage = ({ user, onLogout }) => {
                                                                 )}
 
                                                                 {/* Payment Summary */}
-                                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                                                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                                                                     <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                                                                         <div className="flex items-center gap-2 mb-1">
                                                                             <DollarSign className="w-4 h-4 text-slate-500" />
@@ -407,7 +412,7 @@ const PendingPaymentsPage = ({ user, onLogout }) => {
                                                                             </h5>
                                                                         </div>
 
-                                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                                             {paymentHistory[wo.id].map((pmt, idx) => (
                                                                                 <div
                                                                                     key={pmt.id || idx}
