@@ -18,21 +18,21 @@ const constructAttachmentUrl = (attachmentPath) => {
   if (attachmentPath.startsWith('http')) {
     return attachmentPath;
   }
-  
+
   // If it's a relative path starting with /uploads/
   if (attachmentPath.startsWith('/uploads/')) {
     // Get the base URL without the /api part
     const baseUrl = API.replace('/api', '');
     return `${baseUrl}${attachmentPath}`;
   }
-  
+
   // For any other relative path
   if (!attachmentPath.includes('://')) {
     const baseUrl = API.replace('/api', '');
     const formattedPath = attachmentPath.startsWith('/') ? attachmentPath : `/${attachmentPath}`;
     return `${baseUrl}${formattedPath}`;
   }
-  
+
   // Fallback
   return attachmentPath;
 };
@@ -68,18 +68,18 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
 
   useEffect(() => {
     fetchData();
-    
+
     // If workOrder prop is provided, we're in edit mode
     if (workOrder) {
       setIsEditing(true);
       // Populate form with existing work order data
-      const products = workOrder.products && workOrder.products.length > 0 
+      const products = workOrder.products && workOrder.products.length > 0
         ? workOrder.products.map(product => ({
-            ...product,
-            category: product.category || 'WARDROBE' // Default to WARDROBE if no category
-          }))
+          ...product,
+          category: product.category || 'WARDROBE' // Default to WARDROBE if no category
+        }))
         : [];
-      
+
       setFormData({
         title: workOrder.title || '',
         description: workOrder.description || '',
@@ -96,10 +96,10 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
         asset_code: workOrder.asset_code || '', // Populate existing asset code
         category: workOrder.category || '' // Populate existing category
       });
-      
+
       // Set all products to be open by default when editing
       setOpenProducts(products.map(() => true));
-      
+
       // Set uploaded files for display
       if (workOrder.attachments) {
         setUploadedFiles(workOrder.attachments.map((url, index) => ({
@@ -116,7 +116,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
       // Fetch company information first
       const companyRes = await axios.get(`${API}/companies/${companyId}`);
       setCompany(companyRes.data);
-      
+
       const [clientsRes, employeesRes] = await Promise.all([
         axios.get(`${API}/companies/${companyId}/clients`),
         axios.get(`${API}/companies/${companyId}/employees`)
@@ -152,7 +152,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
         defaultCategory = 'MEP';
       }
     }
-    
+
     setFormData({
       ...formData,
       products: [...formData.products, { name: '', description: '', quantity: 1, price: 0, category: defaultCategory }]
@@ -163,7 +163,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
   const removeProduct = (index) => {
     const updatedProducts = formData.products.filter((_, i) => i !== index);
     const updatedOpenProducts = openProducts.filter((_, i) => i !== index);
-    
+
     setFormData({ ...formData, products: updatedProducts });
     setOpenProducts(updatedOpenProducts);
   };
@@ -182,37 +182,37 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
 
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
-    
+
     for (const file of files) {
       try {
         // Create FormData for file upload
         const formDataObj = new FormData();
         formDataObj.append('file', file);
-        
+
         // Debug: Log the file and formData
         // console.log('Uploading file:', file);
         // console.log('FormData:', formDataObj);
-        
+
         // Upload file - let axios handle the Content-Type header automatically
         const response = await axios.post(`${API}/upload`, formDataObj);
-        
+
         // Debug: Log the response
         // console.log('Upload response:', response);
-        
+
         // Add uploaded file to attachments
         const newAttachment = response.data.path; // Assuming backend returns file path
         setFormData(prev => ({
           ...prev,
           attachments: [...prev.attachments, newAttachment]
         }));
-        
+
         // Add to uploaded files for display
         setUploadedFiles(prev => [...prev, {
           id: Date.now() + Math.random(), // Unique ID
           name: file.name,
           url: newAttachment
         }]);
-        
+
         toast.success(`File ${file.name} uploaded successfully`);
       } catch (error) {
         console.error('Upload error:', error);
@@ -250,46 +250,46 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     // Validate required fields
     if (!formData.title) {
       toast.error('Title is required');
       setLoading(false);
       return;
     }
-    
+
     if (!formData.requested_by_client_id) {
       toast.error('Client is required');
       setLoading(false);
       return;
     }
-    
+
     if (!formData.assigned_technicians || formData.assigned_technicians.length === 0) {
       toast.error('At least one technician is required');
       setLoading(false);
       return;
     }
-    
+
     // Validate asset code for MSAM
     if (isMSAM && !formData.asset_code) {
       toast.error('Asset code is required for MSAM Technical Solutions');
       setLoading(false);
       return;
     }
-    
+
     // Validate category for MSAM
     if (isMSAM && !formData.category) {
       toast.error('Category is required for MSAM Technical Solutions');
       setLoading(false);
       return;
     }
-    
+
     // Validate products if not MSAM
     if (!isMSAM) {
-      const hasInvalidProduct = formData.products.some(product => 
+      const hasInvalidProduct = formData.products.some(product =>
         !product.name || product.quantity <= 0 || product.price < 0
       );
-      
+
       if (hasInvalidProduct) {
         toast.error('All products must have a name, quantity (greater than 0), and valid price');
         setLoading(false);
@@ -369,7 +369,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
           { value: 'STEERING', label: 'Steering' },
           { value: 'OTHER', label: 'Other' }
         ];
-      
+
       case 'technical_solutions':
         return [
           { value: 'ELECTRICAL', label: 'Electrical' },
@@ -382,7 +382,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
           { value: 'MISCELLANEOUS', label: 'Miscellaneous' },
           { value: 'OTHER', label: 'Other' }
         ];
-      
+
       default:
         // Furniture categories for Sama Al Jazeera
         return [
@@ -404,14 +404,14 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent 
-        className="max-w-3xl max-h-[90vh] overflow-y-auto" 
+      <DialogContent
+        className="max-w-3xl max-h-[90vh] overflow-y-auto"
         data-testid="workorder-modal"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold" style={{fontFamily: 'Space Grotesk'}}>
+          <DialogTitle className="text-2xl font-bold" style={{ fontFamily: 'Space Grotesk' }}>
             {isEditing ? 'Edit Work Order' : 'Create Work Order'}
           </DialogTitle>
         </DialogHeader>
@@ -464,20 +464,20 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                   Upload images, PDFs, or documents (Max 10 files)
                 </p>
               </div>
-              
+
               {/* Display uploaded files */}
               {uploadedFiles.length > 0 && (
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {uploadedFiles.map((file) => {
                     // Handle both relative and absolute URLs properly
                     let fullUrl = constructAttachmentUrl(file.url);
-                    
+
                     return (
                       <div key={file.id} className="relative group">
                         <div className="border rounded-lg overflow-hidden">
                           {fullUrl.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                            <img 
-                              src={fullUrl} 
+                            <img
+                              src={fullUrl}
                               alt={file.name}
                               className="w-full h-24 object-cover"
                               onError={(e) => {
@@ -512,8 +512,8 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="sla_days">SLA (Days)</Label>
-              <Select 
-                value={formData.sla_days} 
+              <Select
+                value={formData.sla_days}
                 onValueChange={(value) => setFormData({ ...formData, sla_days: value })}
               >
                 <SelectTrigger>
@@ -528,7 +528,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="promise_date">Promise Completion Date</Label>
               <Input
@@ -539,7 +539,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
               />
             </div>
           </div>
-          
+
           {/* Asset Code and Category Fields for MSAM */}
           {isMSAM && (
             <div className="grid grid-cols-2 gap-4">
@@ -553,11 +553,11 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                   placeholder="Enter asset code"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="msam_category">Category *</Label>
-                <Select 
-                  value={formData.category || ''} 
+                <Select
+                  value={formData.category || ''}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
                 >
                   <SelectTrigger id="msam_category">
@@ -587,26 +587,26 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                   <Plus className="w-4 h-4 mr-1" /> Add Product
                 </Button>
               </div>
-              
+
               <div className="space-y-3">
                 {formData.products.map((product, index) => (
                   <div key={index} className="border rounded-lg">
-                    <div 
+                    <div
                       className="flex justify-between items-center p-3 bg-slate-50 cursor-pointer"
                       onClick={() => toggleProduct(index)}
                     >
                       <div className="flex items-center">
-                        {openProducts[index] ? 
-                          <ChevronDown className="w-4 h-4 mr-2" /> : 
+                        {openProducts[index] ?
+                          <ChevronDown className="w-4 h-4 mr-2" /> :
                           <ChevronRight className="w-4 h-4 mr-2" />
                         }
                         <span className="font-medium">
                           Product #{index + 1}: {product.name || 'Unnamed Product'}
                         </span>
                       </div>
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
+                      <Button
+                        type="button"
+                        variant="ghost"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -616,7 +616,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
-                    
+
                     {openProducts[index] && (
                       <div className="p-3 space-y-3">
                         <div className="grid grid-cols-2 gap-3">
@@ -629,11 +629,11 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                               required
                             />
                           </div>
-                          
+
                           <div>
                             <Label htmlFor={`product-category-${index}`}>Category *</Label>
-                            <Select 
-                              value={product.category || 'WARDROBE'} 
+                            <Select
+                              value={product.category || 'WARDROBE'}
                               onValueChange={(value) => handleProductChange(index, 'category', value)}
                             >
                               <SelectTrigger id={`product-category-${index}`}>
@@ -649,7 +649,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                             </Select>
                           </div>
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label htmlFor={`product-description-${index}`}>Description</Label>
                           <Textarea
@@ -659,7 +659,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                             rows={2}
                           />
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor={`product-quantity-${index}`}>Quantity *</Label>
@@ -672,7 +672,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                               required
                             />
                           </div>
-                          
+
                           <div>
                             <Label htmlFor={`product-price-${index}`}>Price (AED) *</Label>
                             <Input
@@ -691,7 +691,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                   </div>
                 ))}
               </div>
-              
+
               <div className="text-right text-sm font-medium">
                 Total Quoted Price: AED {calculateTotalPrice().toFixed(2)}
               </div>
@@ -703,8 +703,8 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
               <Label htmlFor="client">Client *</Label>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <Select 
-                    value={formData.requested_by_client_id} 
+                  <Select
+                    value={formData.requested_by_client_id}
                     onValueChange={(value) => setFormData({ ...formData, requested_by_client_id: value })}
                   >
                     <SelectTrigger data-testid="wo-client-select">
@@ -717,9 +717,9 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setShowClientModal(true)}
                   className="flex items-center"
                 >
@@ -730,8 +730,8 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
 
             <div className="space-y-2">
               <Label htmlFor="technician">Technician(s) *</Label>
-              <Select 
-                value={formData.assigned_technicians[0] || ''} 
+              <Select
+                value={formData.assigned_technicians[0] || ''}
                 onValueChange={(value) => setFormData({ ...formData, assigned_technicians: [value] })}
               >
                 <SelectTrigger data-testid="wo-technician-select">
@@ -767,9 +767,9 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setShowVehicleModal(true)}
                   className="flex items-center"
                 >
@@ -836,7 +836,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
           </div>
         </form>
       </DialogContent>
-      
+
       {/* Client Modal */}
       {showClientModal && (
         <ClientModal
@@ -845,7 +845,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
           onSuccess={handleClientCreated}
         />
       )}
-      
+
       {/* Vehicle Modal */}
       {showVehicleModal && (
         <VehicleModal

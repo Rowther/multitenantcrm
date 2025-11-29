@@ -4,8 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.responses import Response
-from motor.motor_asyncio import AsyncIOMotorClient
+from starlette.responses import Response, StreamingResponse
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, timezone, timedelta
@@ -26,6 +26,7 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 import asyncio
 from typing import Dict, Any
+from bson import ObjectId
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -52,6 +53,8 @@ try:
         connect=False,  # Connect lazily - don't connect immediately
     )
     db = client[os.environ.get('DB_NAME', 'erp_crm_database')]
+    # Initialize GridFS bucket for file storage
+    fs = AsyncIOMotorGridFSBucket(db)
 except Exception as e:
     logging.error(f"Failed to connect to MongoDB: {e}")
     raise
@@ -61,7 +64,7 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production'
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION = 24  # hours
 
-# Create uploads directory
+# Create uploads directory (kept for backward compatibility with old files)
 UPLOADS_DIR = ROOT_DIR / 'uploads'
 UPLOADS_DIR.mkdir(exist_ok=True)
 
@@ -1302,23 +1305,64 @@ async def upload_file(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     try:
-        # Generate unique filename
-        file_extension = ""
-        if file.filename:
-            file_extension = file.filename.split('.')[-1] if '.' in file.filename else ''
-        unique_filename = f"{uuid.uuid4()}.{file_extension}"
-        file_path = UPLOADS_DIR / unique_filename
+        # Read file content
+        file_content = await file.read()
         
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Get file metadata
+        filename = file.filename or "unknown"
+        content_type = file.content_type or "application/octet-stream"
         
-        # Return file path
-        return {"path": f"/uploads/{unique_filename}"}
+        # Upload to GridFS
+        file_id = await fs.upload_from_stream(
+            filename,
+            file_content,
+            metadata={
+                "content_type": content_type,
+                "uploaded_by": current_user['id'],
+                "uploaded_at": datetime.now(timezone.utc).isoformat()
+            }
+        )
+        
+        # Return file path with metadata for frontend
+        return {
+            "path": f"/api/files/{str(file_id)}",
+            "content_type": content_type,
+            "filename": filename
+        }
     except Exception as e:
+        logging.error(f"GridFS upload error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
-# Serve uploaded files
+# File Retrieval from GridFS
+@api_router.get("/files/{file_id}")
+async def get_file(file_id: str):
+    """Retrieve a file from GridFS by its ID"""
+    try:
+        # Convert string ID to ObjectId
+        object_id = ObjectId(file_id)
+        
+        # Get file metadata
+        grid_out = await fs.open_download_stream(object_id)
+        
+        # Read file content
+        file_content = await grid_out.read()
+        
+        # Get content type from metadata
+        content_type = grid_out.metadata.get("content_type", "application/octet-stream") if grid_out.metadata else "application/octet-stream"
+        
+        # Return file as streaming response
+        return Response(
+            content=file_content,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"inline; filename={grid_out.filename}"
+            }
+        )
+    except Exception as e:
+        logging.error(f"GridFS retrieval error: {str(e)}")
+        raise HTTPException(status_code=404, detail="File not found")
+
+# Serve uploaded files (kept for backward compatibility with old local files)
 from fastapi.staticfiles import StaticFiles
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 

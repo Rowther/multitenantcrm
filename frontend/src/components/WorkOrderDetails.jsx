@@ -3,12 +3,13 @@ import axios from 'axios';
 import { API } from '../App';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
-import { Eye, Edit, Trash2, Calendar, DollarSign, User, Car, Paperclip, Image as ImageIcon } from 'lucide-react';
+import { Eye, Edit, Trash2, Calendar, DollarSign, User, Car, Paperclip, Image as ImageIcon, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import ExpenseTracker from './ExpenseTracker';
 import InvoiceGenerator from './InvoiceGenerator';
 import StatusUpdater from './StatusUpdater';
 import CommentsSection from './CommentsSection';
+import ImageLightbox from './ImageLightbox';
 
 // Utility function to construct full URL for attachments
 const constructAttachmentUrl = (attachmentPath) => {
@@ -43,6 +44,8 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
   const [technicians, setTechnicians] = useState([]);
   const [vehicle, setVehicle] = useState(null);
   const [currentEmployee, setCurrentEmployee] = useState(null); // Employee record for current user
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // Function to check if deadline is approaching (within 2 days) and work order is not completed
   const isDeadlineApproaching = (promiseDate, status) => {
@@ -92,7 +95,7 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
 
   // Check if user can update work order status
   const canUpdateWorkOrderStatus = () => {
- 
+
     if (user.role === 'SUPERADMIN' || user.role === 'ADMIN') {
       return true;
     }
@@ -375,58 +378,95 @@ const WorkOrderDetails = ({ workOrderId, companyId, onBack, onEdit, user }) => {
         <Card className="p-6">
           <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
             <Paperclip className="w-5 h-5 mr-2" />
-            Attachments
+            Attachments ({workOrder.attachments.length})
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {workOrder.attachments.map((attachment, index) => {
-              // Normalize the attachment URL to ensure it's displayable
-              let displayUrl = constructAttachmentUrl(attachment);
+              const displayUrl = constructAttachmentUrl(attachment);
+              // Check for image extensions in the attachment path
+              const hasImageExtension = attachment.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i);
+              // Check for PDF extension
+              const hasPDFExtension = attachment.match(/\.pdf$/i);
 
-              // Debug: Log the attachment processing
-              // console.log('Processing attachment:', attachment);
-              // console.log('Constructed display URL:', displayUrl);
+              // For GridFS files (no extension), assume image and let onError handle it
+              const isGridFSFile = attachment.includes('/api/files/');
+              const isImage = hasImageExtension || (isGridFSFile && !hasPDFExtension);
+              const isPDF = hasPDFExtension;
 
-              // Check if it's an image file
-              const isImage = displayUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+              const fileName = attachment.split('/').pop() || `File ${index + 1}`;
 
               return (
-                <div key={index} className="border rounded-lg overflow-hidden">
-                  {isImage ? (
-                    <img
-                      src={displayUrl}
-                      alt={`Attachment ${index + 1}`}
-                      className="w-full h-32 object-cover"
-                      onError={(e) => {
-                        // Debug: Log when image fails to load
-                        // console.log('Image failed to load:', displayUrl);
-                        // If image fails to load, show fallback
-                        e.target.onerror = null;
-                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2NjYyIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+SW1hZ2UgTm90IEZvdW5kPC90ZXh0Pjwvc3ZnPg==';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-32 flex items-center justify-center bg-slate-100">
-                      <ImageIcon className="w-8 h-8 text-slate-400" />
-                    </div>
-                  )}
-                  <div className="p-2">
-                    <p className="text-xs text-slate-600 truncate">
-                      Attachment {index + 1}
+                <div
+                  key={index}
+                  className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+                  onClick={() => {
+                    setLightboxIndex(index);
+                    setLightboxOpen(true);
+                  }}
+                >
+                  <div className="relative">
+                    {isImage ? (
+                      <>
+                        <img
+                          src={displayUrl}
+                          alt={fileName}
+                          className="w-full h-32 object-cover group-hover:opacity-90 transition-opacity"
+                          onError={(e) => {
+                            // If image fails to load, replace with document icon
+                            const parent = e.target.parentElement;
+                            if (parent) {
+                              e.target.style.display = 'none';
+                              const fallback = document.createElement('div');
+                              fallback.className = 'w-full h-32 flex flex-col items-center justify-center bg-blue-50 group-hover:bg-blue-100 transition-colors';
+                              fallback.innerHTML = `
+                                <svg class="w-12 h-12 text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span class="text-xs text-blue-700 font-medium">Document</span>
+                              `;
+                              parent.insertBefore(fallback, e.target);
+                            }
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </>
+                    ) : isPDF ? (
+                      <div className="w-full h-32 flex flex-col items-center justify-center bg-red-50 group-hover:bg-red-100 transition-colors">
+                        <FileText className="w-12 h-12 text-red-500 mb-2" />
+                        <span className="text-xs text-red-700 font-medium">PDF</span>
+                      </div>
+                    ) : (
+                      <div className="w-full h-32 flex flex-col items-center justify-center bg-blue-50 group-hover:bg-blue-100 transition-colors">
+                        <FileText className="w-12 h-12 text-blue-500 mb-2" />
+                        <span className="text-xs text-blue-700 font-medium">Document</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2 bg-white">
+                    <p className="text-xs text-slate-600 truncate" title={fileName}>
+                      {fileName}
                     </p>
-                    <a
-                      href={displayUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      View
-                    </a>
+                    <p className="text-xs text-blue-600 font-medium mt-1">
+                      Click to view
+                    </p>
                   </div>
                 </div>
               );
             })}
           </div>
         </Card>
+      )}
+
+      {/* Lightbox for viewing attachments */}
+      {lightboxOpen && workOrder.attachments && (
+        <ImageLightbox
+          attachments={workOrder.attachments}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxOpen(false)}
+          constructUrl={constructAttachmentUrl}
+        />
       )}
 
       {/* Status Updater - For users with edit permissions or assigned employees */}
