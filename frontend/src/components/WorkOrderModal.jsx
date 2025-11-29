@@ -117,12 +117,17 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
       const companyRes = await axios.get(`${API}/companies/${companyId}`);
       setCompany(companyRes.data);
 
-      const [clientsRes, employeesRes] = await Promise.all([
+      const [clientsRes, usersRes] = await Promise.all([
         axios.get(`${API}/companies/${companyId}/clients`),
-        axios.get(`${API}/companies/${companyId}/employees`)
+        axios.get(`${API}/users`)
       ]);
       setClients(clientsRes.data);
-      setEmployees(employeesRes.data);
+
+      // Filter users to get only employees from this company
+      const companyEmployees = usersRes.data.filter(user =>
+        user.role === 'EMPLOYEE' && user.company_id === companyId
+      );
+      setEmployees(companyEmployees);
 
       // Try to fetch vehicles (might fail if not Vigor)
       try {
@@ -740,7 +745,7 @@ const WorkOrderModal = ({ companyId, onClose, onSuccess, workOrder }) => {
                 <SelectContent>
                   {employees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
-                      {employee.user?.display_name || employee.user?.email || 'Unknown Employee'}
+                      {employee.display_name || employee.email || 'Unknown Employee'}
                     </SelectItem>
                   ))}
                 </SelectContent>
